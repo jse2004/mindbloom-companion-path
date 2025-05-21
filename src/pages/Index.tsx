@@ -1,13 +1,16 @@
 
-import { MessageCircle, BarChart2, ClipboardList, Video, Shield, Users } from "lucide-react";
+import { MessageCircle, BarChart2, ClipboardList, Video, Shield, Users, ArrowRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import FeatureCard from "@/components/FeatureCard";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const Index = () => {
+  const { user, isAdmin } = useAuthContext();
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -126,11 +129,21 @@ const Index = () => {
             <p className="mt-6 text-xl max-w-3xl mx-auto">
               Join thousands of users already benefiting from personalized mental health support
             </p>
-            <Button asChild size="lg" className="mt-8 bg-white text-support-600 hover:bg-gray-100">
-              <Link to="/assessment">
-                Begin Free Assessment
-              </Link>
-            </Button>
+            {user ? (
+              <Button asChild size="lg" className="mt-8 bg-white text-support-600 hover:bg-gray-100">
+                <Link to={isAdmin ? "/admin" : "/dashboard"}>
+                  Go to {isAdmin ? "Admin Dashboard" : "Dashboard"}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="lg" className="mt-8 bg-white text-support-600 hover:bg-gray-100">
+                <Link to="/auth">
+                  Get Started
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            )}
           </div>
         </section>
       </main>
