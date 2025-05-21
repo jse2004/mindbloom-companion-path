@@ -117,7 +117,10 @@ const Auth = () => {
     // Set the default tab based on the URL parameter
     const tabParam = searchParams.get('tab');
     if (tabParam) {
-      document.querySelector(`[data-value="${tabParam}"]`)?.click();
+      const element = document.querySelector(`[data-value="${tabParam}"]`);
+      if (element instanceof HTMLElement) {
+        element.click();
+      }
     }
   }, [searchParams]);
 
