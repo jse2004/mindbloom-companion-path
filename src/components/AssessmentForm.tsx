@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-// Sample assessment questions
+// Enhanced assessment questions with more focus on emotions
 const questions = [
   {
     id: 1,
@@ -18,6 +18,7 @@ const questions = [
       { value: "2", label: "More than half the days" },
       { value: "3", label: "Nearly every day" },
     ],
+    category: "depression",
   },
   {
     id: 2,
@@ -28,6 +29,7 @@ const questions = [
       { value: "2", label: "More than half the days" },
       { value: "3", label: "Nearly every day" },
     ],
+    category: "anxiety",
   },
   {
     id: 3,
@@ -38,6 +40,7 @@ const questions = [
       { value: "2", label: "More than half the days" },
       { value: "3", label: "Nearly every day" },
     ],
+    category: "physical",
   },
   {
     id: 4,
@@ -48,6 +51,7 @@ const questions = [
       { value: "2", label: "More than half the days" },
       { value: "3", label: "Nearly every day" },
     ],
+    category: "physical",
   },
   {
     id: 5,
@@ -58,6 +62,63 @@ const questions = [
       { value: "2", label: "More than half the days" },
       { value: "3", label: "Nearly every day" },
     ],
+    category: "physical",
+  },
+  // New emotion-specific questions
+  {
+    id: 6,
+    question: "How often do you feel overwhelmed by intense anger or irritability that's difficult to control?",
+    options: [
+      { value: "0", label: "Not at all" },
+      { value: "1", label: "Several days" },
+      { value: "2", label: "More than half the days" },
+      { value: "3", label: "Nearly every day" },
+    ],
+    category: "anger",
+  },
+  {
+    id: 7,
+    question: "How often do you feel a sense of fear or panic that comes on suddenly and intensely?",
+    options: [
+      { value: "0", label: "Not at all" },
+      { value: "1", label: "Several days" },
+      { value: "2", label: "More than half the days" },
+      { value: "3", label: "Nearly every day" },
+    ],
+    category: "panic",
+  },
+  {
+    id: 8,
+    question: "How often do you feel numb or emotionally disconnected from people and activities around you?",
+    options: [
+      { value: "0", label: "Not at all" },
+      { value: "1", label: "Several days" },
+      { value: "2", label: "More than half the days" },
+      { value: "3", label: "Nearly every day" },
+    ],
+    category: "dissociation",
+  },
+  {
+    id: 9,
+    question: "How often do you feel excessive guilt or shame about things you've done or failed to do?",
+    options: [
+      { value: "0", label: "Not at all" },
+      { value: "1", label: "Several days" },
+      { value: "2", label: "More than half the days" },
+      { value: "3", label: "Nearly every day" },
+    ],
+    category: "guilt",
+  },
+  {
+    id: 10,
+    question: "How often do you experience intrusive thoughts or memories that cause significant distress?",
+    options: [
+      { value: "0", label: "Not at all" },
+      { value: "1", label: "Several days" },
+      { value: "2", label: "More than half the days" },
+      { value: "3", label: "Nearly every day" },
+    ],
+    category: "trauma",
   },
 ];
 
@@ -99,22 +160,110 @@ const AssessmentForm = () => {
     return ((currentStep + 1) / questions.length) * 100;
   };
 
-  const calculateScore = () => {
-    let total = 0;
-    Object.values(answers).forEach((value) => {
-      total += parseInt(value);
+  const calculateCategoryScores = () => {
+    const categories = {
+      depression: { score: 0, max: 0 },
+      anxiety: { score: 0, max: 0 },
+      physical: { score: 0, max: 0 },
+      anger: { score: 0, max: 0 },
+      panic: { score: 0, max: 0 },
+      dissociation: { score: 0, max: 0 },
+      guilt: { score: 0, max: 0 },
+      trauma: { score: 0, max: 0 },
+    };
+    
+    questions.forEach(question => {
+      const category = question.category as keyof typeof categories;
+      const answer = parseInt(answers[question.id] || "0");
+      
+      categories[category].score += answer;
+      categories[category].max += 3; // Max value per question is 3
     });
-    return total;
+    
+    // Convert to percentages and find primary concerns
+    const results = Object.entries(categories).map(([category, data]) => {
+      const percentage = (data.score / data.max) * 100;
+      return {
+        category,
+        percentage,
+        level: getLevelDescription(percentage),
+      };
+    });
+    
+    // Sort by percentage (highest first)
+    return results.sort((a, b) => b.percentage - a.percentage);
   };
 
-  const getResultCategory = (score: number) => {
-    const maxPossibleScore = questions.length * 3;
-    const percentage = (score / maxPossibleScore) * 100;
-    
+  const getLevelDescription = (percentage: number) => {
     if (percentage < 25) return "Minimal";
     if (percentage < 50) return "Mild";
     if (percentage < 75) return "Moderate";
     return "Severe";
+  };
+  
+  const getPrimaryEmotionalConcerns = () => {
+    const scores = calculateCategoryScores();
+    return scores.filter(score => score.percentage > 33).slice(0, 3);
+  };
+
+  const getOverallSeverity = () => {
+    let total = 0;
+    let maxPossible = questions.length * 3;
+    
+    Object.values(answers).forEach((value) => {
+      total += parseInt(value);
+    });
+    
+    const percentage = (total / maxPossible) * 100;
+    return getLevelDescription(percentage);
+  };
+
+  const getRecommendations = () => {
+    const primaryConcerns = getPrimaryEmotionalConcerns();
+    const overallSeverity = getOverallSeverity();
+    
+    // Default recommendations
+    let recommendations = [
+      "Self-care strategies",
+      "Stress management techniques",
+      "Mood tracking",
+      "Sleep hygiene practices"
+    ];
+    
+    // Add severity-specific recommendations
+    if (overallSeverity === "Moderate" || overallSeverity === "Severe") {
+      recommendations.push("Consultation with mental health professional");
+      recommendations.push("Structured therapy approaches");
+    }
+    
+    // Add concern-specific recommendations
+    primaryConcerns.forEach(concern => {
+      switch(concern.category) {
+        case "depression":
+          recommendations.push("Behavioral activation exercises");
+          break;
+        case "anxiety":
+          recommendations.push("Relaxation and grounding techniques");
+          break;
+        case "panic":
+          recommendations.push("Breathing exercises and panic management strategies");
+          break;
+        case "anger":
+          recommendations.push("Anger management techniques");
+          break;
+        case "dissociation":
+          recommendations.push("Grounding exercises for dissociation");
+          break;
+        case "trauma":
+          recommendations.push("Trauma-informed care approaches");
+          break;
+        case "guilt":
+          recommendations.push("Self-compassion practices");
+          break;
+      }
+    });
+    
+    return [...new Set(recommendations)]; // Remove duplicates
   };
 
   const startAssessment = () => {
@@ -134,9 +283,9 @@ const AssessmentForm = () => {
       {assessmentState === "intro" && (
         <>
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Mental Health Assessment</CardTitle>
+            <CardTitle className="text-2xl">Comprehensive Mental Health Assessment</CardTitle>
             <CardDescription>
-              This brief assessment will help us understand your current mental well-being
+              This assessment will help identify your emotional patterns and provide personalized recommendations
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -147,15 +296,19 @@ const AssessmentForm = () => {
               <ul className="mt-2 space-y-2 text-mind-700">
                 <li className="flex items-start">
                   <CheckCircle2 className="h-5 w-5 mr-2 flex-shrink-0 text-mind-500" />
-                  <span>5 questions about your feelings and experiences</span>
+                  <span>10 questions addressing various emotional states and experiences</span>
                 </li>
                 <li className="flex items-start">
                   <CheckCircle2 className="h-5 w-5 mr-2 flex-shrink-0 text-mind-500" />
-                  <span>Takes approximately 2 minutes to complete</span>
+                  <span>Takes approximately 3-5 minutes to complete</span>
                 </li>
                 <li className="flex items-start">
                   <CheckCircle2 className="h-5 w-5 mr-2 flex-shrink-0 text-mind-500" />
-                  <span>Provides personalized recommendations based on your responses</span>
+                  <span>Evaluates multiple dimensions of emotional wellbeing</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="h-5 w-5 mr-2 flex-shrink-0 text-mind-500" />
+                  <span>Provides detailed analysis and personalized recommendations</span>
                 </li>
                 <li className="flex items-start">
                   <CheckCircle2 className="h-5 w-5 mr-2 flex-shrink-0 text-mind-500" />
@@ -241,52 +394,49 @@ const AssessmentForm = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Your Assessment Results</CardTitle>
             <CardDescription>
-              Based on your responses, here's a summary of your current mental health
+              Based on your responses, here's an analysis of your emotional wellbeing
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="text-center">
-              <div className="text-4xl font-bold">{calculateScore()}/{questions.length * 3}</div>
-              <div className="text-xl font-medium mt-2">{getResultCategory(calculateScore())} Level of Distress</div>
+              <div className="text-xl font-medium mt-2">{getOverallSeverity()} Overall Level of Emotional Distress</div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="font-medium">Primary Emotional Concerns</h3>
+              <div className="space-y-3">
+                {getPrimaryEmotionalConcerns().map((concern, index) => (
+                  <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium capitalize">{concern.category}</span>
+                      <span className="text-sm text-gray-500">{concern.level}</span>
+                    </div>
+                    <Progress value={concern.percentage} className="mt-2" />
+                  </div>
+                ))}
+              </div>
             </div>
             
             <div className="bg-mind-50 p-4 rounded-lg">
-              <h3 className="font-medium text-mind-800">What this means</h3>
+              <h3 className="font-medium text-mind-800">Assessment Insights</h3>
               <p className="mt-2 text-mind-700">
-                {getResultCategory(calculateScore()) === "Minimal" && "Your responses suggest minimal levels of distress. Continue practicing self-care and monitoring your mental health."}
-                {getResultCategory(calculateScore()) === "Mild" && "Your responses suggest mild levels of distress. Consider implementing stress management techniques and self-care practices."}
-                {getResultCategory(calculateScore()) === "Moderate" && "Your responses suggest moderate levels of distress. We recommend exploring coping strategies and considering speaking with a mental health professional."}
-                {getResultCategory(calculateScore()) === "Severe" && "Your responses suggest significant levels of distress. We strongly recommend consulting with a mental health professional for support."}
+                {getOverallSeverity() === "Minimal" && "Your responses suggest minimal levels of emotional distress. Continue practicing self-care and monitoring your emotional wellbeing."}
+                {getOverallSeverity() === "Mild" && "Your responses suggest mild levels of emotional distress. Consider implementing stress management techniques and wellness practices."}
+                {getOverallSeverity() === "Moderate" && "Your responses suggest moderate levels of emotional distress across several domains. We recommend exploring coping strategies and considering professional support."}
+                {getOverallSeverity() === "Severe" && "Your responses suggest significant levels of emotional distress. We strongly recommend consulting with a mental health professional for support."}
               </p>
             </div>
             
             <div className="space-y-4">
-              <h3 className="font-medium">Recommended Resources</h3>
+              <h3 className="font-medium">Personalized Recommendations</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button variant="outline" className="justify-start h-auto py-3">
-                  <div className="text-left">
-                    <div className="font-medium">Coping Strategies</div>
-                    <div className="text-sm text-gray-500">Learn effective techniques</div>
-                  </div>
-                </Button>
-                <Button variant="outline" className="justify-start h-auto py-3">
-                  <div className="text-left">
-                    <div className="font-medium">Video Library</div>
-                    <div className="text-sm text-gray-500">Expert-created content</div>
-                  </div>
-                </Button>
-                <Button variant="outline" className="justify-start h-auto py-3">
-                  <div className="text-left">
-                    <div className="font-medium">AI Assistant</div>
-                    <div className="text-sm text-gray-500">Personalized support</div>
-                  </div>
-                </Button>
-                <Button variant="outline" className="justify-start h-auto py-3">
-                  <div className="text-left">
-                    <div className="font-medium">Find a Therapist</div>
-                    <div className="text-sm text-gray-500">Professional help</div>
-                  </div>
-                </Button>
+                {getRecommendations().map((recommendation, index) => (
+                  <Button key={index} variant="outline" className="justify-start h-auto py-3">
+                    <div className="text-left">
+                      <div className="font-medium">{recommendation}</div>
+                    </div>
+                  </Button>
+                ))}
               </div>
             </div>
           </CardContent>
