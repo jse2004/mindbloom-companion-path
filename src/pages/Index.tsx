@@ -131,7 +131,7 @@ const Index = () => {
             </p>
             {user ? (
               <Button asChild size="lg" className="mt-8 bg-white text-support-600 hover:bg-gray-100">
-                <Link to={isAdmin ? "/admin" : "/dashboard"}>
+                <Link to={isAdmin ? "/admin" : "/user"}>
                   Go to {isAdmin ? "Admin Dashboard" : "Dashboard"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>

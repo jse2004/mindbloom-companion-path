@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
   Menu, X, Brain, BarChart2, MessageCircle, Video, 
-  ClipboardList, LogOut, UserCircle, Shield
+  ClipboardList, LogOut, UserCircle, Shield, Home
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import {
@@ -46,22 +46,30 @@ const Navbar = () => {
             {user && (
               <>
                 {isAdmin ? (
-                  <Link to="/admin" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium flex items-center">
-                    <Shield className="mr-1 h-4 w-4" /> Admin
-                  </Link>
+                  <>
+                    <Link to="/admin" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                      <Shield className="mr-1 h-4 w-4" /> Admin Dashboard
+                    </Link>
+                  </>
                 ) : (
                   <>
-                    <Link to="/dashboard" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium">
-                      Dashboard
+                    <Link to="/user" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium flex items-center">
+                      <Home className="mr-1 h-4 w-4" /> Dashboard
                     </Link>
                     <Link to="/chatbot" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium">
-                      AI Assistant
+                      <span className="flex items-center">
+                        <MessageCircle className="mr-1 h-4 w-4" /> AI Assistant
+                      </span>
                     </Link>
                     <Link to="/assessment" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium">
-                      Assessments
+                      <span className="flex items-center">
+                        <ClipboardList className="mr-1 h-4 w-4" /> Assessments
+                      </span>
                     </Link>
                     <Link to="/videos" className="text-gray-700 hover:text-support-600 px-3 py-2 rounded-md text-sm font-medium">
-                      Video Library
+                      <span className="flex items-center">
+                        <Video className="mr-1 h-4 w-4" /> Videos
+                      </span>
                     </Link>
                   </>
                 )}
@@ -79,12 +87,15 @@ const Navbar = () => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard")}>
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
-                    Settings
-                  </DropdownMenuItem>
+                  {isAdmin ? (
+                    <DropdownMenuItem onClick={() => navigate("/admin")}>
+                      Dashboard
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={() => navigate("/user")}>
+                      Dashboard
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" /> Sign Out
@@ -136,11 +147,11 @@ const Navbar = () => {
                 ) : (
                   <>
                     <Link
-                      to="/dashboard"
+                      to="/user"
                       className="flex items-center text-gray-700 hover:bg-support-50 hover:text-support-600 px-3 py-2 rounded-md text-base font-medium"
                       onClick={toggleMenu}
                     >
-                      <BarChart2 className="mr-2 h-5 w-5" />
+                      <Home className="mr-2 h-5 w-5" />
                       Dashboard
                     </Link>
                     <Link

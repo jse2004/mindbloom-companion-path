@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
+import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Chatbot from "./pages/Chatbot";
 import Assessment from "./pages/Assessment";
@@ -44,7 +45,7 @@ const AdminRoute = ({ children }: { children: JSX.Element }) => {
   }
   
   if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/user" replace />;
   }
   
   return children;
@@ -59,7 +60,7 @@ const AppRoutes = () => {
       
       <Route path="/auth" element={
         user ? (
-          <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />
+          <Navigate to={isAdmin ? "/admin" : "/user"} replace />
         ) : (
           <Auth />
         )
@@ -68,6 +69,12 @@ const AppRoutes = () => {
       <Route path="/dashboard" element={
         <UserRoute>
           <Dashboard />
+        </UserRoute>
+      } />
+      
+      <Route path="/user" element={
+        <UserRoute>
+          <UserDashboard />
         </UserRoute>
       } />
       
