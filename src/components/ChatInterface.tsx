@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 type Message = {
   id: string;
@@ -20,6 +22,7 @@ type Message = {
 };
 
 const ChatInterface = () => {
+  const { user } = useAuthContext();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -33,6 +36,8 @@ const ChatInterface = () => {
   const [isAwaitingExpert, setIsAwaitingExpert] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [chatHistory, setChatHistory] = useState<{ id: string; preview: string; date: string }[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const expertRequestForm = useForm({
     defaultValues: {
@@ -46,8 +51,31 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load chat history when component mounts
+  useEffect(() => {
+    if (user) {
+      loadChatHistory();
+    }
+  }, [user]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  
+  const loadChatHistory = async () => {
+    if (!user) return;
+    
+    setLoadingHistory(true);
+    // In a real app, you would fetch this from a database
+    // For now, we'll just simulate some history data
+    setTimeout(() => {
+      setChatHistory([
+        { id: "1", preview: "Discussion about anxiety management", date: "Today" },
+        { id: "2", preview: "Sleep improvement strategies", date: "Yesterday" },
+        { id: "3", preview: "Meditation techniques", date: "May 19" }
+      ]);
+      setLoadingHistory(false);
+    }, 500);
   };
 
   const handleSendMessage = () => {
@@ -185,6 +213,66 @@ const ChatInterface = () => {
 
   const switchToAssessment = () => {
     navigate("/assessment");
+  };
+
+  const handleSuggestedTopic = (topic: string) => {
+    setInputMessage(topic);
+    setTimeout(() => {
+      handleSendMessage();
+    }, 100);
+  };
+
+  const handleToolClick = (toolName: string) => {
+    switch(toolName) {
+      case "crisis":
+        toast({
+          title: "Crisis Resources",
+          description: "If you're experiencing a mental health crisis, please call the National Suicide Prevention Lifeline at 988 or text HOME to 741741."
+        });
+        break;
+      case "meditation":
+        toast({
+          title: "Guided Meditation",
+          description: "Starting guided meditation session...",
+        });
+        // In a real app, you would start a meditation session or navigate to a meditation page
+        break;
+      case "reset":
+        setMessages([{
+          id: "reset",
+          content: "I've reset our conversation. How can I help you today?",
+          sender: "ai",
+          timestamp: new Date()
+        }]);
+        toast({
+          title: "Conversation Reset",
+          description: "Your conversation history has been cleared.",
+        });
+        break;
+      case "articles":
+        toast({
+          title: "Mental Health Articles",
+          description: "Redirecting to mental health articles...",
+        });
+        // In a real app, you would navigate to the articles page
+        break;
+      case "worksheets":
+        toast({
+          title: "Self-Help Worksheets",
+          description: "Redirecting to self-help worksheets...",
+        });
+        // In a real app, you would navigate to the worksheets page
+        break;
+      case "community":
+        toast({
+          title: "Community Support",
+          description: "Redirecting to community support forums...",
+        });
+        // In a real app, you would navigate to the community support page
+        break;
+      default:
+        break;
+    }
   };
 
   return (

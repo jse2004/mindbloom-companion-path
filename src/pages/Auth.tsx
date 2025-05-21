@@ -1,11 +1,12 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
@@ -13,6 +14,8 @@ import { Brain } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'sign-in';
   const [isLoading, setIsLoading] = useState(false);
   
   // Sign In form state
@@ -25,6 +28,7 @@ const Auth = () => {
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [role, setRole] = useState("user");
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +86,8 @@ const Auth = () => {
         options: {
           data: {
             first_name: firstName,
-            last_name: lastName
+            last_name: lastName,
+            role: role // Add the selected role
           }
         }
       });
@@ -99,6 +104,7 @@ const Auth = () => {
       setSignUpConfirmPassword("");
       setFirstName("");
       setLastName("");
+      setRole("user");
       
     } catch (error: any) {
       toast.error(error.message || "An error occurred during sign up");
@@ -106,6 +112,14 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Set the default tab based on the URL parameter
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      document.querySelector(`[data-value="${tabParam}"]`)?.click();
+    }
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -126,7 +140,7 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="sign-in">
+            <Tabs defaultValue={defaultTab}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="sign-in">Sign In</TabsTrigger>
                 <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
@@ -225,6 +239,22 @@ const Auth = () => {
                       disabled={isLoading}
                       required
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Account Type</Label>
+                    <Select
+                      value={role}
+                      onValueChange={(value) => setRole(value)}
+                      disabled={isLoading}
+                    >
+                      <SelectTrigger id="role">
+                        <SelectValue placeholder="Select account type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button 
                     type="submit" 
