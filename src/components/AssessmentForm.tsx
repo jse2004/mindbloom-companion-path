@@ -6,6 +6,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Enhanced assessment questions with more focus on emotions
 const questions = [
@@ -125,9 +128,11 @@ const questions = [
 type AssessmentState = "intro" | "questions" | "results";
 
 const AssessmentForm = () => {
+  const { user } = useAuthContext();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [assessmentState, setAssessmentState] = useState<AssessmentState>("intro");
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleNextQuestion = () => {
     if (currentStep < questions.length - 1) {
@@ -264,6 +269,92 @@ const AssessmentForm = () => {
     });
     
     return [...new Set(recommendations)]; // Remove duplicates
+  };
+
+  const saveResultsToDashboard = async () => {
+    if (!user) {
+      toast.error("You must be logged in to save results");
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      const categoryScores = calculateCategoryScores();
+      const primaryConcerns = getPrimaryEmotionalConcerns();
+      const overallSeverity = getOverallSeverity();
+      const recommendations = getRecommendations();
+
+      // Save assessment result
+      const { data: assessmentResult, error: assessmentError } = await supabase
+        .from('assessment_results')
+        .insert({
+          user_id: user.id,
+          overall_severity: overallSeverity,
+          primary_concerns: primaryConcerns,
+          category_scores: categoryScores,
+          recommendations: recommendations
+        })
+        .select()
+        .single();
+
+      if (assessmentError) {
+        throw assessmentError;
+      }
+
+      // Create detailed recommendations
+      const recommendationInserts = recommendations.map((rec, index) => ({
+        assessment_result_id: assessmentResult.id,
+        title: rec,
+        description: getRecommendationDescription(rec),
+        category: getCategoryForRecommendation(rec),
+        priority: index + 1
+      }));
+
+      const { error: recommendationsError } = await supabase
+        .from('recommendations')
+        .insert(recommendationInserts);
+
+      if (recommendationsError) {
+        throw recommendationsError;
+      }
+
+      toast.success("Assessment results saved successfully!");
+      
+    } catch (error: any) {
+      console.error('Error saving assessment results:', error);
+      toast.error("Failed to save results. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getRecommendationDescription = (title: string) => {
+    const descriptions: Record<string, string> = {
+      "Self-care strategies": "Develop daily self-care routines including proper nutrition, exercise, and relaxation.",
+      "Stress management techniques": "Learn and practice stress reduction methods like deep breathing and mindfulness.",
+      "Mood tracking": "Keep a daily mood journal to identify patterns and triggers.",
+      "Sleep hygiene practices": "Establish healthy sleep habits for better rest and recovery.",
+      "Consultation with mental health professional": "Consider speaking with a therapist or counselor for professional support.",
+      "Structured therapy approaches": "Explore evidence-based therapies like CBT or DBT.",
+      "Behavioral activation exercises": "Engage in pleasant activities to improve mood and motivation.",
+      "Relaxation and grounding techniques": "Practice techniques to manage anxiety and stay present.",
+      "Breathing exercises and panic management strategies": "Learn specific techniques to manage panic attacks.",
+      "Anger management techniques": "Develop healthy ways to express and manage anger.",
+      "Grounding exercises for dissociation": "Practice techniques to stay connected to the present moment.",
+      "Trauma-informed care approaches": "Seek specialized support for trauma-related concerns.",
+      "Self-compassion practices": "Learn to treat yourself with kindness and understanding."
+    };
+    return descriptions[title] || "Recommended mental health practice.";
+  };
+
+  const getCategoryForRecommendation = (title: string) => {
+    if (title.includes("professional") || title.includes("therapy")) return "professional";
+    if (title.includes("breathing") || title.includes("panic")) return "anxiety";
+    if (title.includes("anger")) return "anger";
+    if (title.includes("trauma")) return "trauma";
+    if (title.includes("depression") || title.includes("behavioral")) return "depression";
+    return "general";
   };
 
   const startAssessment = () => {
@@ -431,11 +522,12 @@ const AssessmentForm = () => {
               <h3 className="font-medium">Personalized Recommendations</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {getRecommendations().map((recommendation, index) => (
-                  <Button key={index} variant="outline" className="justify-start h-auto py-3">
-                    <div className="text-left">
-                      <div className="font-medium">{recommendation}</div>
+                  <div key={index} className="border rounded-lg p-3 bg-white">
+                    <div className="font-medium text-sm">{recommendation}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {getRecommendationDescription(recommendation)}
                     </div>
-                  </Button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -444,8 +536,12 @@ const AssessmentForm = () => {
             <Button variant="outline" className="w-full sm:w-auto" onClick={resetAssessment}>
               Take Another Assessment
             </Button>
-            <Button className="w-full sm:w-auto bg-support-500 hover:bg-support-600">
-              Save Results to Dashboard
+            <Button 
+              className="w-full sm:w-auto bg-support-500 hover:bg-support-600"
+              onClick={saveResultsToDashboard}
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving..." : "Save Results to Dashboard"}
             </Button>
           </CardFooter>
         </>

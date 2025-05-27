@@ -1,7 +1,7 @@
-
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AssessmentForm from "@/components/AssessmentForm";
+import AssessmentHistory from "@/components/AssessmentHistory";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookText, ClipboardCheck, FileText, HeartPulse } from "lucide-react";
@@ -45,25 +45,7 @@ const Assessment = () => {
             </TabsContent>
             
             <TabsContent value="history">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assessment History</CardTitle>
-                  <CardDescription>
-                    View your past assessments and track your progress over time
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto" />
-                    <p className="mt-4 text-gray-500">
-                      You haven't completed any assessments yet
-                    </p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Complete an assessment to see your results here
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <AssessmentHistory />
             </TabsContent>
             
             <TabsContent value="learn">

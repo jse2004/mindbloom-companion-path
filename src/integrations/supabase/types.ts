@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      assessment_results: {
+        Row: {
+          category_scores: Json
+          created_at: string
+          id: string
+          overall_severity: string
+          primary_concerns: Json
+          recommendations: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_scores: Json
+          created_at?: string
+          id?: string
+          overall_severity: string
+          primary_concerns: Json
+          recommendations: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_scores?: Json
+          created_at?: string
+          id?: string
+          overall_severity?: string
+          primary_concerns?: Json
+          recommendations?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -35,6 +68,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      recommendations: {
+        Row: {
+          assessment_result_id: string
+          category: string
+          completed: boolean | null
+          created_at: string
+          description: string | null
+          id: string
+          priority: number | null
+          title: string
+        }
+        Insert: {
+          assessment_result_id: string
+          category: string
+          completed?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: number | null
+          title: string
+        }
+        Update: {
+          assessment_result_id?: string
+          category?: string
+          completed?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: number | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendations_assessment_result_id_fkey"
+            columns: ["assessment_result_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_results"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
