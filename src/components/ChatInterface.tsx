@@ -24,8 +24,10 @@ type Message = {
 type ChatSession = {
   id: string;
   title: string;
-  last_message: string;
+  last_message: string | null;
   created_at: string;
+  updated_at: string;
+  messages: Message[];
 };
 
 const ChatInterface = () => {
@@ -82,12 +84,27 @@ const ChatInterface = () => {
 
       if (error) {
         console.error('Error loading chat history:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load chat history",
+          variant: "destructive"
+        });
         return;
       }
 
-      setChatHistory(data || []);
+      const formattedHistory = (data || []).map(session => ({
+        ...session,
+        messages: Array.isArray(session.messages) ? session.messages : []
+      }));
+
+      setChatHistory(formattedHistory);
     } catch (error) {
       console.error('Error loading chat history:', error);
+      toast({
+        title: "Error", 
+        description: "Failed to load chat history",
+        variant: "destructive"
+      });
     } finally {
       setLoadingHistory(false);
     }
@@ -154,7 +171,8 @@ const ChatInterface = () => {
         return;
       }
 
-      setMessages(data.messages || []);
+      const sessionMessages = Array.isArray(data.messages) ? data.messages : [];
+      setMessages(sessionMessages);
       setCurrentChatId(sessionId);
     } catch (error) {
       console.error('Error loading chat session:', error);
@@ -178,7 +196,28 @@ const ChatInterface = () => {
     // Save to database
     await saveChatSession(updatedMessages);
 
-    // Check for specific keywords to switch to expert
+    // Check for meditation keywords
+    const meditationKeywords = ["meditate", "meditation", "calm", "relax", "breathing", "mindfulness"];
+    const containsMeditation = meditationKeywords.some(keyword => 
+      inputMessage.toLowerCase().includes(keyword)
+    );
+
+    if (containsMeditation) {
+      setTimeout(() => {
+        const meditationMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: "I notice you're interested in meditation. That's wonderful! Meditation can be very helpful for managing stress and anxiety. Would you like me to guide you to our meditation page where you can start a session?",
+          sender: "ai",
+          timestamp: new Date(),
+        };
+        const messagesWithMeditation = [...updatedMessages, meditationMessage];
+        setMessages(messagesWithMeditation);
+        saveChatSession(messagesWithMeditation);
+      }, 1000);
+      return;
+    }
+
+    // Check for expert request keywords
     const expertKeywords = ["speak to doctor", "talk to expert", "need professional", "speak with doctor", "human expert", "medical professional"];
     const containsExpertRequest = expertKeywords.some(keyword => 
       inputMessage.toLowerCase().includes(keyword)
@@ -304,53 +343,6 @@ const ChatInterface = () => {
     navigate("/assessment");
   };
 
-  const handleToolClick = (toolName: string) => {
-    switch(toolName) {
-      case "crisis":
-        toast({
-          title: "Crisis Resources",
-          description: "If you're experiencing a mental health crisis, please call the National Suicide Prevention Lifeline at 988 or text HOME to 741741."
-        });
-        break;
-      case "meditation":
-        navigate("/meditation");
-        break;
-      case "reset":
-        setMessages([{
-          id: "reset",
-          content: "I've reset our conversation. How can I help you today?",
-          sender: "ai",
-          timestamp: new Date()
-        }]);
-        setCurrentChatId(null);
-        toast({
-          title: "Conversation Reset",
-          description: "Your conversation history has been cleared.",
-        });
-        break;
-      case "articles":
-        toast({
-          title: "Mental Health Articles",
-          description: "Redirecting to mental health articles...",
-        });
-        break;
-      case "worksheets":
-        toast({
-          title: "Self-Help Worksheets",
-          description: "Redirecting to self-help worksheets...",
-        });
-        break;
-      case "community":
-        toast({
-          title: "Community Support",
-          description: "Redirecting to community support forums...",
-        });
-        break;
-      default:
-        break;
-    }
-  };
-
   const startNewChat = () => {
     setMessages([{
       id: "new",
@@ -361,6 +353,10 @@ const ChatInterface = () => {
     setCurrentChatId(null);
     setChatMode("ai");
     setIsAwaitingExpert(false);
+  };
+
+  const navigateToMeditation = () => {
+    navigate("/meditation");
   };
 
   return (
@@ -377,6 +373,9 @@ const ChatInterface = () => {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={startNewChat}>
               New Chat
+            </Button>
+            <Button variant="outline" size="sm" onClick={navigateToMeditation}>
+              Start Meditation
             </Button>
             <Dialog>
               <DialogTrigger asChild>
