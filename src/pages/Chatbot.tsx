@@ -13,8 +13,6 @@ import { useNavigate } from "react-router-dom";
 const Chatbot = () => {
   const { user, loading } = useAuthContext();
   const navigate = useNavigate();
-  const [chatHistory, setChatHistory] = useState<{ id: string; preview: string; date: string }[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -23,39 +21,29 @@ const Chatbot = () => {
     }
   }, [user, loading, navigate]);
 
-  // Load chat history
-  useEffect(() => {
-    if (user) {
-      loadChatHistory();
-    }
-  }, [user]);
-
-  const loadChatHistory = async () => {
-    if (!user) return;
-    
-    setLoadingHistory(true);
-    // In a real app, you would fetch this from a database
-    // For now, we'll just simulate some history data
-    setTimeout(() => {
-      setChatHistory([
-        { id: "1", preview: "Discussion about anxiety management", date: "Today" },
-        { id: "2", preview: "Sleep improvement strategies", date: "Yesterday" },
-        { id: "3", preview: "Meditation techniques", date: "May 19" }
-      ]);
-      setLoadingHistory(false);
-    }, 500);
-  };
-
-  const handleSuggestedTopic = (topic: string) => {
-    // This would normally be handled by passing a prop to ChatInterface
-    // For now, we'll just show what topics are clicked
-    console.log("Selected topic:", topic);
-  };
-
   const handleToolClick = (toolName: string) => {
-    // This would normally be handled by passing a prop to ChatInterface
-    // For now, we'll just show what tool is clicked
-    console.log("Selected tool:", toolName);
+    switch(toolName) {
+      case "crisis":
+        alert("Crisis Resources: If you're experiencing a mental health crisis, please call the National Suicide Prevention Lifeline at 988 or text HOME to 741741.");
+        break;
+      case "meditation":
+        navigate("/meditation");
+        break;
+      case "reset":
+        window.location.reload();
+        break;
+      case "articles":
+        alert("Redirecting to mental health articles...");
+        break;
+      case "worksheets":
+        alert("Redirecting to self-help worksheets...");
+        break;
+      case "community":
+        alert("Redirecting to community support forums...");
+        break;
+      default:
+        break;
+    }
   };
 
   if (loading) {
@@ -82,46 +70,6 @@ const Chatbot = () => {
             
             {/* Right sidebar */}
             <div className="space-y-6">
-              {/* Suggested topics */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Suggested Topics</CardTitle>
-                  <CardDescription>
-                    Conversation starters to explore
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start text-left"
-                    onClick={() => handleSuggestedTopic("I've been feeling anxious lately")}
-                  >
-                    "I've been feeling anxious lately"
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start text-left"
-                    onClick={() => handleSuggestedTopic("Help me with stress management")}
-                  >
-                    "Help me with stress management"
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start text-left"
-                    onClick={() => handleSuggestedTopic("I'm having trouble sleeping")}
-                  >
-                    "I'm having trouble sleeping"
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-start text-left"
-                    onClick={() => handleSuggestedTopic("I need motivation techniques")}
-                  >
-                    "I need motivation techniques"
-                  </Button>
-                </CardContent>
-              </Card>
-              
               {/* Chat tools */}
               <Card>
                 <CardHeader>
@@ -132,10 +80,9 @@ const Chatbot = () => {
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="support">
-                    <TabsList className="grid grid-cols-3 mb-4">
+                    <TabsList className="grid grid-cols-2 mb-4">
                       <TabsTrigger value="support">Support</TabsTrigger>
                       <TabsTrigger value="resources">Resources</TabsTrigger>
-                      <TabsTrigger value="history">History</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="support" className="space-y-3">
@@ -190,35 +137,6 @@ const Chatbot = () => {
                         <BookOpen className="mr-2 h-4 w-4 text-mind-500" />
                         <span>Community Support</span>
                       </Button>
-                    </TabsContent>
-                    
-                    <TabsContent value="history">
-                      {loadingHistory ? (
-                        <div className="text-center py-3 text-gray-500">
-                          <p>Loading conversation history...</p>
-                        </div>
-                      ) : chatHistory.length > 0 ? (
-                        <div className="space-y-2">
-                          {chatHistory.map(chat => (
-                            <Button
-                              key={chat.id}
-                              variant="ghost"
-                              className="w-full justify-start text-left"
-                              onClick={() => console.log("Load chat", chat.id)}
-                            >
-                              <div>
-                                <p className="font-medium text-sm">{chat.preview}</p>
-                                <p className="text-xs text-gray-500">{chat.date}</p>
-                              </div>
-                            </Button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-3 text-gray-500">
-                          <History className="h-10 w-10 mx-auto text-gray-300" />
-                          <p className="mt-2">Your conversation history will appear here</p>
-                        </div>
-                      )}
                     </TabsContent>
                   </Tabs>
                 </CardContent>

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Chatbot from "./pages/Chatbot";
 import Assessment from "./pages/Assessment";
 import VideoLibrary from "./pages/VideoLibrary";
+import Meditation from "./pages/Meditation";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
@@ -93,6 +93,12 @@ const AppRoutes = () => {
       <Route path="/assessment" element={
         <UserRoute>
           <Assessment />
+        </UserRoute>
+      } />
+      
+      <Route path="/meditation" element={
+        <UserRoute>
+          <Meditation />
         </UserRoute>
       } />
       

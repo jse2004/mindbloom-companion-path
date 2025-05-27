@@ -21,6 +21,13 @@ type Message = {
   timestamp: Date;
 };
 
+type ChatSession = {
+  id: string;
+  title: string;
+  last_message: string;
+  created_at: string;
+};
+
 const ChatInterface = () => {
   const { user } = useAuthContext();
   const [messages, setMessages] = useState<Message[]>([
@@ -34,10 +41,11 @@ const ChatInterface = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [chatMode, setChatMode] = useState<"ai" | "expert">("ai");
   const [isAwaitingExpert, setIsAwaitingExpert] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const [chatHistory, setChatHistory] = useState<{ id: string; preview: string; date: string }[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const expertRequestForm = useForm({
     defaultValues: {
@@ -51,7 +59,6 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Load chat history when component mounts
   useEffect(() => {
     if (user) {
       loadChatHistory();
@@ -66,22 +73,97 @@ const ChatInterface = () => {
     if (!user) return;
     
     setLoadingHistory(true);
-    // In a real app, you would fetch this from a database
-    // For now, we'll just simulate some history data
-    setTimeout(() => {
-      setChatHistory([
-        { id: "1", preview: "Discussion about anxiety management", date: "Today" },
-        { id: "2", preview: "Sleep improvement strategies", date: "Yesterday" },
-        { id: "3", preview: "Meditation techniques", date: "May 19" }
-      ]);
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading chat history:', error);
+        return;
+      }
+
+      setChatHistory(data || []);
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    } finally {
       setLoadingHistory(false);
-    }, 500);
+    }
   };
 
-  const handleSendMessage = () => {
+  const saveChatSession = async (messages: Message[]) => {
+    if (!user || messages.length <= 1) return;
+
+    try {
+      const lastUserMessage = messages.filter(m => m.sender === 'user').pop();
+      const title = lastUserMessage?.content.substring(0, 50) + (lastUserMessage?.content.length > 50 ? '...' : '') || 'New conversation';
+      
+      if (currentChatId) {
+        // Update existing session
+        const { error } = await supabase
+          .from('chat_sessions')
+          .update({
+            title,
+            messages: messages,
+            last_message: lastUserMessage?.content || '',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentChatId);
+
+        if (error) {
+          console.error('Error updating chat session:', error);
+        }
+      } else {
+        // Create new session
+        const { data, error } = await supabase
+          .from('chat_sessions')
+          .insert({
+            user_id: user.id,
+            title,
+            messages: messages,
+            last_message: lastUserMessage?.content || '',
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error creating chat session:', error);
+        } else {
+          setCurrentChatId(data.id);
+        }
+      }
+      
+      loadChatHistory();
+    } catch (error) {
+      console.error('Error saving chat session:', error);
+    }
+  };
+
+  const loadChatSession = async (sessionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (error) {
+        console.error('Error loading chat session:', error);
+        return;
+      }
+
+      setMessages(data.messages || []);
+      setCurrentChatId(sessionId);
+    } catch (error) {
+      console.error('Error loading chat session:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
     if (inputMessage.trim() === "") return;
 
-    // Add user message
     const newMessage: Message = {
       id: Date.now().toString(),
       content: inputMessage,
@@ -89,8 +171,12 @@ const ChatInterface = () => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    const updatedMessages = [...messages, newMessage];
+    setMessages(updatedMessages);
     setInputMessage("");
+
+    // Save to database
+    await saveChatSession(updatedMessages);
 
     // Check for specific keywords to switch to expert
     const expertKeywords = ["speak to doctor", "talk to expert", "need professional", "speak with doctor", "human expert", "medical professional"];
@@ -103,7 +189,6 @@ const ChatInterface = () => {
         setChatMode("expert");
         setIsAwaitingExpert(true);
         
-        // Simulate doctor response after a slight delay
         setTimeout(() => {
           const doctorMessage: Message = {
             id: (Date.now() + 1).toString(),
@@ -111,15 +196,16 @@ const ChatInterface = () => {
             sender: "doctor",
             timestamp: new Date(),
           };
-          setMessages((prev) => [...prev, doctorMessage]);
+          const messagesWithDoctor = [...updatedMessages, doctorMessage];
+          setMessages(messagesWithDoctor);
+          saveChatSession(messagesWithDoctor);
         }, 1500);
       }
     } else {
-      // Generate AI response based on message analysis
+      // Generate AI response
       setTimeout(() => {
         const processedMessage = inputMessage.toLowerCase();
         
-        // Detect emotion/condition patterns
         let responseType = "general";
         
         if (processedMessage.includes("anxious") || processedMessage.includes("worry") || 
@@ -133,7 +219,6 @@ const ChatInterface = () => {
           responseType = "stress";
         }
         
-        // Generate appropriate response based on detected conditions
         const aiResponses = {
           anxiety: [
             "I notice you mentioned feeling anxious. Anxiety often manifests as persistent worry or fear. Would you like to explore some grounding techniques that might help?",
@@ -159,11 +244,9 @@ const ChatInterface = () => {
           ],
         };
 
-        // Select response based on detected type
         const responsesForType = aiResponses[responseType];
         const randomResponse = responsesForType[Math.floor(Math.random() * responsesForType.length)];
 
-        // If user asks for assessment, suggest taking one
         if (processedMessage.includes("assess") || processedMessage.includes("evaluate") || 
             processedMessage.includes("test") || processedMessage.includes("questionnaire")) {
           const assessmentMessage: Message = {
@@ -172,7 +255,9 @@ const ChatInterface = () => {
             sender: "ai",
             timestamp: new Date(),
           };
-          setMessages((prev) => [...prev, assessmentMessage]);
+          const messagesWithAI = [...updatedMessages, assessmentMessage];
+          setMessages(messagesWithAI);
+          saveChatSession(messagesWithAI);
         } else {
           const aiMessage: Message = {
             id: (Date.now() + 1).toString(),
@@ -180,7 +265,9 @@ const ChatInterface = () => {
             sender: "ai",
             timestamp: new Date(),
           };
-          setMessages((prev) => [...prev, aiMessage]);
+          const messagesWithAI = [...updatedMessages, aiMessage];
+          setMessages(messagesWithAI);
+          saveChatSession(messagesWithAI);
         }
       }, 1000);
     }
@@ -196,7 +283,6 @@ const ChatInterface = () => {
     setIsAwaitingExpert(true);
     setChatMode("expert");
     
-    // Add system message about the expert request
     const systemMessage: Message = {
       id: Date.now().toString(),
       content: `Your request to speak with a medical professional has been submitted. Reason: ${data.reason}. Urgency: ${data.urgency}. A doctor will connect with you shortly.`,
@@ -204,7 +290,10 @@ const ChatInterface = () => {
       timestamp: new Date(),
     };
     
-    setMessages(prev => [...prev, systemMessage]);
+    const updatedMessages = [...messages, systemMessage];
+    setMessages(updatedMessages);
+    saveChatSession(updatedMessages);
+    
     toast({
       title: "Expert Request Submitted",
       description: "A medical professional will connect with you shortly.",
@@ -213,13 +302,6 @@ const ChatInterface = () => {
 
   const switchToAssessment = () => {
     navigate("/assessment");
-  };
-
-  const handleSuggestedTopic = (topic: string) => {
-    setInputMessage(topic);
-    setTimeout(() => {
-      handleSendMessage();
-    }, 100);
   };
 
   const handleToolClick = (toolName: string) => {
@@ -231,11 +313,7 @@ const ChatInterface = () => {
         });
         break;
       case "meditation":
-        toast({
-          title: "Guided Meditation",
-          description: "Starting guided meditation session...",
-        });
-        // In a real app, you would start a meditation session or navigate to a meditation page
+        navigate("/meditation");
         break;
       case "reset":
         setMessages([{
@@ -244,6 +322,7 @@ const ChatInterface = () => {
           sender: "ai",
           timestamp: new Date()
         }]);
+        setCurrentChatId(null);
         toast({
           title: "Conversation Reset",
           description: "Your conversation history has been cleared.",
@@ -254,25 +333,34 @@ const ChatInterface = () => {
           title: "Mental Health Articles",
           description: "Redirecting to mental health articles...",
         });
-        // In a real app, you would navigate to the articles page
         break;
       case "worksheets":
         toast({
           title: "Self-Help Worksheets",
           description: "Redirecting to self-help worksheets...",
         });
-        // In a real app, you would navigate to the worksheets page
         break;
       case "community":
         toast({
           title: "Community Support",
           description: "Redirecting to community support forums...",
         });
-        // In a real app, you would navigate to the community support page
         break;
       default:
         break;
     }
+  };
+
+  const startNewChat = () => {
+    setMessages([{
+      id: "new",
+      content: "Hello! I'm your mental health assistant. How are you feeling today? I can help assess your emotions, or you can request to speak with a medical professional.",
+      sender: "ai",
+      timestamp: new Date()
+    }]);
+    setCurrentChatId(null);
+    setChatMode("ai");
+    setIsAwaitingExpert(false);
   };
 
   return (
@@ -287,6 +375,9 @@ const ChatInterface = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={startNewChat}>
+              New Chat
+            </Button>
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -365,49 +456,84 @@ const ChatInterface = () => {
         </div>
       </div>
 
-      {/* Messages area */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              "flex",
-              message.sender === "user" ? "justify-end" : "justify-start"
-            )}
-          >
+      <div className="flex flex-1 overflow-hidden">
+        {/* Messages area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map((message) => (
             <div
+              key={message.id}
               className={cn(
-                "max-w-[80%] rounded-2xl px-4 py-3",
-                message.sender === "user"
-                  ? "bg-support-500 text-white rounded-tr-none"
-                  : message.sender === "doctor"
-                  ? "bg-mind-100 text-gray-800 rounded-tl-none"
-                  : "bg-gray-100 text-gray-800 rounded-tl-none"
+                "flex",
+                message.sender === "user" ? "justify-end" : "justify-start"
               )}
             >
-              {message.sender === "doctor" && (
-                <div className="font-medium text-mind-700 text-xs mb-1">Medical Professional</div>
-              )}
-              <p>{message.content}</p>
-              <span
+              <div
                 className={cn(
-                  "text-xs mt-1 block",
-                  message.sender === "user" 
-                    ? "text-support-100" 
+                  "max-w-[80%] rounded-2xl px-4 py-3",
+                  message.sender === "user"
+                    ? "bg-support-500 text-white rounded-tr-none"
                     : message.sender === "doctor"
-                    ? "text-mind-500"
-                    : "text-gray-500"
+                    ? "bg-mind-100 text-gray-800 rounded-tl-none"
+                    : "bg-gray-100 text-gray-800 rounded-tl-none"
                 )}
               >
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+                {message.sender === "doctor" && (
+                  <div className="font-medium text-mind-700 text-xs mb-1">Medical Professional</div>
+                )}
+                <p>{message.content}</p>
+                <span
+                  className={cn(
+                    "text-xs mt-1 block",
+                    message.sender === "user" 
+                      ? "text-support-100" 
+                      : message.sender === "doctor"
+                      ? "text-mind-500"
+                      : "text-gray-500"
+                  )}
+                >
+                  {message.timestamp.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Chat History Sidebar */}
+        <div className="w-64 border-l bg-gray-50 p-4 overflow-y-auto">
+          <h3 className="font-medium text-sm mb-3">Chat History</h3>
+          {loadingHistory ? (
+            <div className="text-center py-3 text-gray-500 text-sm">
+              <p>Loading...</p>
+            </div>
+          ) : chatHistory.length > 0 ? (
+            <div className="space-y-2">
+              {chatHistory.map(chat => (
+                <Button
+                  key={chat.id}
+                  variant="ghost"
+                  className="w-full justify-start text-left p-2 h-auto"
+                  onClick={() => loadChatSession(chat.id)}
+                >
+                  <div className="text-left">
+                    <p className="font-medium text-xs truncate">{chat.title}</p>
+                    <p className="text-xs text-gray-500 truncate">{chat.last_message}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(chat.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-3 text-gray-500 text-sm">
+              <p>No chat history yet</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Input area */}
