@@ -21,6 +21,14 @@ type Message = {
   timestamp: Date;
 };
 
+// Type for database storage (with string timestamps)
+type DatabaseMessage = {
+  id: string;
+  content: string;
+  sender: "user" | "ai" | "doctor";
+  timestamp: string;
+};
+
 type ChatSession = {
   id: string;
   title: string;
@@ -70,6 +78,22 @@ const ChatInterface = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Helper function to convert database messages to app messages
+  const convertDatabaseMessagesToMessages = (dbMessages: any[]): Message[] => {
+    return dbMessages.map(msg => ({
+      ...msg,
+      timestamp: new Date(msg.timestamp)
+    }));
+  };
+
+  // Helper function to convert app messages to database messages
+  const convertMessagesToDatabaseMessages = (messages: Message[]): DatabaseMessage[] => {
+    return messages.map(msg => ({
+      ...msg,
+      timestamp: msg.timestamp.toISOString()
+    }));
+  };
   
   const loadChatHistory = async () => {
     if (!user) return;
@@ -92,9 +116,11 @@ const ChatInterface = () => {
         return;
       }
 
-      const formattedHistory = (data || []).map(session => ({
+      const formattedHistory: ChatSession[] = (data || []).map(session => ({
         ...session,
-        messages: Array.isArray(session.messages) ? session.messages : []
+        messages: Array.isArray(session.messages) 
+          ? convertDatabaseMessagesToMessages(session.messages as any[])
+          : []
       }));
 
       setChatHistory(formattedHistory);
@@ -117,13 +143,16 @@ const ChatInterface = () => {
       const lastUserMessage = messages.filter(m => m.sender === 'user').pop();
       const title = lastUserMessage?.content.substring(0, 50) + (lastUserMessage?.content.length > 50 ? '...' : '') || 'New conversation';
       
+      // Convert messages to database format
+      const dbMessages = convertMessagesToDatabaseMessages(messages);
+      
       if (currentChatId) {
         // Update existing session
         const { error } = await supabase
           .from('chat_sessions')
           .update({
             title,
-            messages: messages,
+            messages: dbMessages,
             last_message: lastUserMessage?.content || '',
             updated_at: new Date().toISOString()
           })
@@ -139,7 +168,7 @@ const ChatInterface = () => {
           .insert({
             user_id: user.id,
             title,
-            messages: messages,
+            messages: dbMessages,
             last_message: lastUserMessage?.content || '',
           })
           .select()
@@ -171,7 +200,9 @@ const ChatInterface = () => {
         return;
       }
 
-      const sessionMessages = Array.isArray(data.messages) ? data.messages : [];
+      const sessionMessages = Array.isArray(data.messages) 
+        ? convertDatabaseMessagesToMessages(data.messages as any[])
+        : [];
       setMessages(sessionMessages);
       setCurrentChatId(sessionId);
     } catch (error) {
