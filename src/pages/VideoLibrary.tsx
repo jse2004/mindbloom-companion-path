@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -6,80 +7,88 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Search, X, Play } from "lucide-react";
+import { Search, X, Play, ExternalLink } from "lucide-react";
 
-// Sample video data
+// Real YouTube videos for mental health
 const videos = [
   {
     id: 1,
-    title: "Understanding Anxiety",
-    description: "Learn about the different types of anxiety disorders and how they affect your mind and body.",
+    title: "Understanding Anxiety and Panic Attacks",
+    description: "Learn about anxiety disorders, their symptoms, and effective coping strategies from mental health professionals.",
     duration: "12:34",
     category: "Anxiety",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/jryCoo0BrRk/maxresdefault.jpg",
+    youtubeId: "jryCoo0BrRk",
   },
   {
     id: 2,
-    title: "Mindfulness Meditation Basics",
-    description: "A guided introduction to mindfulness meditation techniques to help reduce stress and improve focus.",
-    duration: "15:20",
+    title: "10 Minute Mindfulness Meditation",
+    description: "A guided mindfulness meditation to help reduce stress, improve focus, and promote mental wellbeing.",
+    duration: "10:15",
     category: "Meditation",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/ZToicYcHIOU/maxresdefault.jpg",
+    youtubeId: "ZToicYcHIOU",
   },
   {
     id: 3,
     title: "Cognitive Behavioral Therapy Techniques",
-    description: "Practical CBT techniques you can use to challenge negative thought patterns.",
+    description: "Learn practical CBT techniques to challenge negative thought patterns and improve mental health.",
     duration: "18:45",
     category: "Therapy",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/0ViaCs0k2Mc/maxresdefault.jpg",
+    youtubeId: "0ViaCs0k2Mc",
   },
   {
     id: 4,
-    title: "Improving Sleep Quality",
-    description: "Tips and techniques for better sleep hygiene and overcoming insomnia.",
+    title: "Sleep Hygiene for Better Mental Health",
+    description: "Tips and techniques for improving sleep quality and its impact on mental wellbeing.",
     duration: "14:12",
     category: "Sleep",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/t0kACis_dJE/maxresdefault.jpg",
+    youtubeId: "t0kACis_dJE",
   },
   {
     id: 5,
-    title: "Managing Depression",
-    description: "Understanding depression symptoms and effective management strategies.",
+    title: "Understanding and Managing Depression",
+    description: "Professional insights into depression symptoms, causes, and effective treatment approaches.",
     duration: "20:30",
     category: "Depression",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/z-IR48Mb3W0/maxresdefault.jpg",
+    youtubeId: "z-IR48Mb3W0",
   },
   {
     id: 6,
-    title: "Stress Reduction Techniques",
-    description: "Learn practical methods to reduce stress in your daily life.",
+    title: "Stress Management Techniques",
+    description: "Learn practical methods to reduce stress and build resilience in your daily life.",
     duration: "16:15",
     category: "Stress",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/hnpQrMqDoqE/maxresdefault.jpg",
+    youtubeId: "hnpQrMqDoqE",
   },
   {
     id: 7,
     title: "Building Emotional Resilience",
-    description: "How to develop stronger emotional resilience to life's challenges.",
+    description: "Strategies for developing stronger emotional resilience to cope with life's challenges.",
     duration: "22:40",
     category: "Resilience",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/NWH8N-BvhAw/maxresdefault.jpg",
+    youtubeId: "NWH8N-BvhAw",
   },
   {
     id: 8,
     title: "Healthy Boundaries in Relationships",
-    description: "Learn how to establish and maintain healthy boundaries in all types of relationships.",
+    description: "Learn how to establish and maintain healthy boundaries in personal and professional relationships.",
     duration: "19:25",
     category: "Relationships",
-    thumbnail: "/placeholder.svg",
+    thumbnail: "https://img.youtube.com/vi/5XS8dhwyQzY/maxresdefault.jpg",
+    youtubeId: "5XS8dhwyQzY",
   },
 ];
 
 const categories = [
   "All",
   "Anxiety",
-  "Depression",
+  "Depression", 
   "Meditation",
   "Sleep",
   "Stress",
@@ -191,28 +200,47 @@ const VideoLibrary = () => {
       </main>
       
       <Dialog open={videoDialogOpen} onOpenChange={setVideoDialogOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-5xl w-full">
           {selectedVideo && (
             <>
               <DialogHeader>
                 <DialogTitle>{selectedVideo.title}</DialogTitle>
                 <DialogDescription>{selectedVideo.description}</DialogDescription>
               </DialogHeader>
-              <div className="aspect-video bg-black rounded-md flex items-center justify-center">
-                <div className="text-white text-center p-4">
-                  <p className="mb-2">Video player would be integrated here</p>
-                  <Button variant="outline" className="text-white border-white hover:bg-white hover:text-black">
-                    <Play className="mr-2 h-4 w-4" />
-                    Play Video
-                  </Button>
-                </div>
+              <div className="aspect-video bg-black rounded-md overflow-hidden">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${selectedVideo.youtubeId}`}
+                  title={selectedVideo.title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
               </div>
-              <div className="flex justify-between items-center">
-                <div>
-                  <span className="font-medium">Category:</span> {selectedVideo.category}
+              <div className="flex justify-between items-center mt-4">
+                <div className="flex items-center gap-4">
+                  <span className="font-medium">Category:</span> 
+                  <span className="px-2 py-1 bg-support-100 text-support-700 rounded-md text-sm">{selectedVideo.category}</span>
                 </div>
-                <div>
+                <div className="flex items-center gap-4">
                   <span className="font-medium">Duration:</span> {selectedVideo.duration}
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    asChild
+                  >
+                    <a 
+                      href={`https://www.youtube.com/watch?v=${selectedVideo.youtubeId}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Watch on YouTube
+                    </a>
+                  </Button>
                 </div>
               </div>
             </>

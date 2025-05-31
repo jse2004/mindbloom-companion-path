@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SendHorizonal, Mic, Paperclip, UserRound, AlertCircle } from "lucide-react";
+import { SendHorizonal, Mic, Paperclip, UserRound, AlertCircle, Phone, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,6 +54,7 @@ const ChatInterface = () => {
   const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -223,6 +224,7 @@ const ChatInterface = () => {
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     setInputMessage("");
+    setIsTyping(true);
 
     // Save to database
     await saveChatSession(updatedMessages);
@@ -235,6 +237,7 @@ const ChatInterface = () => {
 
     if (containsMeditation) {
       setTimeout(() => {
+        setIsTyping(false);
         const meditationMessage: Message = {
           id: (Date.now() + 1).toString(),
           content: "I notice you're interested in meditation. That's wonderful! Meditation can be very helpful for managing stress and anxiety. Would you like me to guide you to our meditation page where you can start a session?",
@@ -244,7 +247,7 @@ const ChatInterface = () => {
         const messagesWithMeditation = [...updatedMessages, meditationMessage];
         setMessages(messagesWithMeditation);
         saveChatSession(messagesWithMeditation);
-      }, 1000);
+      }, 1500);
       return;
     }
 
@@ -260,6 +263,7 @@ const ChatInterface = () => {
         setIsAwaitingExpert(true);
         
         setTimeout(() => {
+          setIsTyping(false);
           const doctorMessage: Message = {
             id: (Date.now() + 1).toString(),
             content: "Thank you for reaching out. A medical professional has been notified and will join this conversation shortly. While you wait, can you please provide more details about your concern?",
@@ -269,11 +273,12 @@ const ChatInterface = () => {
           const messagesWithDoctor = [...updatedMessages, doctorMessage];
           setMessages(messagesWithDoctor);
           saveChatSession(messagesWithDoctor);
-        }, 1500);
+        }, 2000);
       }
     } else {
       // Generate AI response
       setTimeout(() => {
+        setIsTyping(false);
         const processedMessage = inputMessage.toLowerCase();
         
         let responseType = "general";
@@ -339,7 +344,7 @@ const ChatInterface = () => {
           setMessages(messagesWithAI);
           saveChatSession(messagesWithAI);
         }
-      }, 1000);
+      }, 1500);
     }
   };
 
@@ -370,8 +375,23 @@ const ChatInterface = () => {
     });
   };
 
-  const switchToAssessment = () => {
-    navigate("/assessment");
+  const handleCrisisSupport = () => {
+    const crisisMessage: Message = {
+      id: Date.now().toString(),
+      content: "🚨 Crisis Resources:\n\n• National Suicide Prevention Lifeline: 988\n• Crisis Text Line: Text HOME to 741741\n• International Association for Suicide Prevention: https://www.iasp.info/resources/Crisis_Centres/\n\nIf you're in immediate danger, please call emergency services (911) right away.",
+      sender: "ai",
+      timestamp: new Date(),
+    };
+    
+    const updatedMessages = [...messages, crisisMessage];
+    setMessages(updatedMessages);
+    saveChatSession(updatedMessages);
+    
+    toast({
+      title: "Crisis Resources",
+      description: "If you're experiencing a mental health crisis, please call 988 or text HOME to 741741.",
+      variant: "destructive"
+    });
   };
 
   const startNewChat = () => {
@@ -390,97 +410,31 @@ const ChatInterface = () => {
     navigate("/meditation");
   };
 
+  const navigateToVideos = () => {
+    navigate("/videos");
+  };
+
+  const navigateToAssessment = () => {
+    navigate("/assessment");
+  };
+
   return (
-    <div className="flex flex-col h-[600px] md:h-[700px] bg-white rounded-xl shadow-sm border">
+    <div className="flex flex-col h-[700px] bg-white rounded-xl shadow-lg border">
       {/* Chat header */}
-      <div className="p-4 border-b">
+      <div className="p-6 border-b bg-gradient-to-r from-mind-50 to-support-50 rounded-t-xl">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-medium text-lg">Mental Health Assistant</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="font-bold text-xl text-gray-800">Mental Health Assistant</h2>
+            <p className="text-sm text-gray-600 mt-1">
               {chatMode === "ai" ? "AI-powered support available 24/7" : "Medical Professional Support"}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={startNewChat}>
+            <Button variant="outline" size="sm" onClick={startNewChat} className="hover:bg-mind-50">
               New Chat
             </Button>
-            <Button variant="outline" size="sm" onClick={navigateToMeditation}>
-              Start Meditation
-            </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <UserRound className="h-4 w-4 mr-1" />
-                  Speak with Expert
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Request to speak with a medical professional</DialogTitle>
-                  <DialogDescription>
-                    Please provide some information about your request.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <Form {...expertRequestForm}>
-                  <form onSubmit={expertRequestForm.handleSubmit(handleRequestExpert)} className="space-y-4">
-                    <FormField
-                      control={expertRequestForm.control}
-                      name="reason"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Reason for consultation</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Briefly describe why you'd like to speak with a medical professional" 
-                              className="resize-none" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={expertRequestForm.control}
-                      name="urgency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Urgency</FormLabel>
-                          <FormControl>
-                            <Tabs defaultValue="normal" className="w-full" onValueChange={field.onChange}>
-                              <TabsList className="grid grid-cols-3 w-full">
-                                <TabsTrigger value="low">Low</TabsTrigger>
-                                <TabsTrigger value="normal">Normal</TabsTrigger>
-                                <TabsTrigger value="high">High</TabsTrigger>
-                              </TabsList>
-                            </Tabs>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 flex items-start gap-2 text-sm">
-                      <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-yellow-800 font-medium">Important notice</p>
-                        <p className="text-yellow-700">If you're experiencing a mental health emergency, please call emergency services immediately or go to your nearest emergency room.</p>
-                      </div>
-                    </div>
-                    
-                    <DialogFooter>
-                      <Button type="submit">Submit Request</Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-            
-            <Button variant="outline" size="sm" onClick={switchToAssessment}>
-              Take Assessment
+            <Button variant="outline" size="sm" onClick={navigateToMeditation} className="hover:bg-support-50">
+              Meditation
             </Button>
           </div>
         </div>
@@ -488,7 +442,7 @@ const ChatInterface = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -499,21 +453,24 @@ const ChatInterface = () => {
             >
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-3",
+                  "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm",
                   message.sender === "user"
                     ? "bg-support-500 text-white rounded-tr-none"
                     : message.sender === "doctor"
-                    ? "bg-mind-100 text-gray-800 rounded-tl-none"
-                    : "bg-gray-100 text-gray-800 rounded-tl-none"
+                    ? "bg-mind-100 text-gray-800 rounded-tl-none border border-mind-200"
+                    : "bg-white text-gray-800 rounded-tl-none border border-gray-200"
                 )}
               >
                 {message.sender === "doctor" && (
-                  <div className="font-medium text-mind-700 text-xs mb-1">Medical Professional</div>
+                  <div className="font-medium text-mind-700 text-xs mb-1 flex items-center gap-1">
+                    <UserRound className="h-3 w-3" />
+                    Medical Professional
+                  </div>
                 )}
-                <p>{message.content}</p>
+                <p className="whitespace-pre-line">{message.content}</p>
                 <span
                   className={cn(
-                    "text-xs mt-1 block",
+                    "text-xs mt-2 block",
                     message.sender === "user" 
                       ? "text-support-100" 
                       : message.sender === "doctor"
@@ -529,72 +486,223 @@ const ChatInterface = () => {
               </div>
             </div>
           ))}
+          
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="bg-white text-gray-800 rounded-2xl rounded-tl-none px-4 py-3 border border-gray-200 shadow-sm">
+                <div className="flex items-center space-x-1">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                  </div>
+                  <span className="text-sm text-gray-500 ml-2">AI is typing...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Chat History Sidebar */}
-        <div className="w-64 border-l bg-gray-50 p-4 overflow-y-auto">
-          <h3 className="font-medium text-sm mb-3">Chat History</h3>
-          {loadingHistory ? (
-            <div className="text-center py-3 text-gray-500 text-sm">
-              <p>Loading...</p>
-            </div>
-          ) : chatHistory.length > 0 ? (
-            <div className="space-y-2">
-              {chatHistory.map(chat => (
-                <Button
-                  key={chat.id}
-                  variant="ghost"
-                  className="w-full justify-start text-left p-2 h-auto"
-                  onClick={() => loadChatSession(chat.id)}
-                >
-                  <div className="text-left">
-                    <p className="font-medium text-xs truncate">{chat.title}</p>
-                    <p className="text-xs text-gray-500 truncate">{chat.last_message}</p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(chat.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-3 text-gray-500 text-sm">
-              <p>No chat history yet</p>
-            </div>
-          )}
+        {/* Enhanced Sidebar */}
+        <div className="w-80 border-l bg-white p-6 overflow-y-auto">
+          <h3 className="font-semibold text-lg mb-4 text-gray-800">Tools & Resources</h3>
+          
+          <Tabs defaultValue="support" className="w-full">
+            <TabsList className="grid grid-cols-2 mb-6 w-full">
+              <TabsTrigger value="support">Support</TabsTrigger>
+              <TabsTrigger value="resources">Resources</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="support" className="space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start hover:bg-red-50 border-red-200 text-red-700"
+                onClick={handleCrisisSupport}
+              >
+                <Phone className="mr-3 h-4 w-4" />
+                <span>Crisis Support</span>
+              </Button>
+              
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start hover:bg-mind-50 border-mind-200 text-mind-700"
+                  >
+                    <UserRound className="mr-3 h-4 w-4" />
+                    <span>Speak with Expert</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Request Medical Professional</DialogTitle>
+                    <DialogDescription>
+                      Please provide some information about your request.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <Form {...expertRequestForm}>
+                    <form onSubmit={expertRequestForm.handleSubmit(handleRequestExpert)} className="space-y-4">
+                      <FormField
+                        control={expertRequestForm.control}
+                        name="reason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Reason for consultation</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Briefly describe why you'd like to speak with a medical professional" 
+                                className="resize-none" 
+                                {...field} 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={expertRequestForm.control}
+                        name="urgency"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Urgency</FormLabel>
+                            <FormControl>
+                              <Tabs defaultValue="normal" className="w-full" onValueChange={field.onChange}>
+                                <TabsList className="grid grid-cols-3 w-full">
+                                  <TabsTrigger value="low">Low</TabsTrigger>
+                                  <TabsTrigger value="normal">Normal</TabsTrigger>
+                                  <TabsTrigger value="high">High</TabsTrigger>
+                                </TabsList>
+                              </Tabs>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="bg-yellow-50 p-3 rounded-md border border-yellow-200 flex items-start gap-2 text-sm">
+                        <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-yellow-800 font-medium">Important notice</p>
+                          <p className="text-yellow-700">If you're experiencing a mental health emergency, please call emergency services immediately.</p>
+                        </div>
+                      </div>
+                      
+                      <DialogFooter>
+                        <Button type="submit">Submit Request</Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start hover:bg-support-50 border-support-200 text-support-700"
+                onClick={navigateToMeditation}
+              >
+                <MessageSquare className="mr-3 h-4 w-4" />
+                <span>Guided Meditation</span>
+              </Button>
+            </TabsContent>
+            
+            <TabsContent value="resources" className="space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start hover:bg-bloom-50 border-bloom-200 text-bloom-700"
+                onClick={navigateToAssessment}
+              >
+                <FileText className="mr-3 h-4 w-4" />
+                <span>Take Assessment</span>
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start hover:bg-mind-50 border-mind-200 text-mind-700"
+                onClick={navigateToVideos}
+              >
+                <Play className="mr-3 h-4 w-4" />
+                <span>Video Library</span>
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start hover:bg-support-50 border-support-200 text-support-700"
+                onClick={() => window.open('https://www.mentalhealth.gov/basics/what-is-mental-health', '_blank')}
+              >
+                <ExternalLink className="mr-3 h-4 w-4" />
+                <span>Mental Health Resources</span>
+              </Button>
+            </TabsContent>
+          </Tabs>
+          
+          {/* Chat History */}
+          <div className="mt-8">
+            <h4 className="font-medium text-sm mb-3 text-gray-700">Recent Conversations</h4>
+            {loadingHistory ? (
+              <div className="text-center py-3 text-gray-500 text-sm">
+                <p>Loading...</p>
+              </div>
+            ) : chatHistory.length > 0 ? (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {chatHistory.slice(0, 5).map(chat => (
+                  <Button
+                    key={chat.id}
+                    variant="ghost"
+                    className="w-full justify-start text-left p-2 h-auto hover:bg-gray-50"
+                    onClick={() => loadChatSession(chat.id)}
+                  >
+                    <div className="text-left">
+                      <p className="font-medium text-xs truncate text-gray-800">{chat.title}</p>
+                      <p className="text-xs text-gray-500 truncate">{chat.last_message}</p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(chat.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-3 text-gray-500 text-sm">
+                <p>No conversations yet</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Input area */}
-      <div className="p-4 border-t">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon" className="rounded-full">
-            <Paperclip className="h-5 w-5 text-gray-500" />
+      {/* Enhanced Input area */}
+      <div className="p-4 border-t bg-white rounded-b-xl">
+        <div className="flex items-center space-x-3">
+          <Button variant="outline" size="icon" className="rounded-full hover:bg-gray-50">
+            <Paperclip className="h-4 w-4 text-gray-500" />
           </Button>
-          <Button variant="outline" size="icon" className="rounded-full">
-            <Mic className="h-5 w-5 text-gray-500" />
+          <Button variant="outline" size="icon" className="rounded-full hover:bg-gray-50">
+            <Mic className="h-4 w-4 text-gray-500" />
           </Button>
           <Input
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder={chatMode === "ai" ? "Type a message..." : "Type your message to the medical professional..."}
-            className="rounded-full"
+            placeholder={chatMode === "ai" ? "Type your message..." : "Message the medical professional..."}
+            className="rounded-full border-gray-300 focus:border-support-400"
           />
           <Button
             onClick={handleSendMessage}
-            disabled={!inputMessage.trim()}
+            disabled={!inputMessage.trim() || isTyping}
             size="icon"
-            className="rounded-full bg-support-500 hover:bg-support-600"
+            className="rounded-full bg-support-500 hover:bg-support-600 disabled:opacity-50"
           >
-            <SendHorizonal className="h-5 w-5" />
+            <SendHorizonal className="h-4 w-4" />
           </Button>
         </div>
         <p className="text-xs text-gray-500 mt-2 text-center">
           {chatMode === "ai" 
-            ? "Your conversations are private and secure. We use AI to provide support, not medical advice." 
-            : "Your conversation with medical professionals is confidential and subject to applicable healthcare privacy laws."}
+            ? "Your conversations are private and secure. AI provides support, not medical advice." 
+            : "Your conversation with medical professionals is confidential and HIPAA compliant."}
         </p>
       </div>
     </div>
