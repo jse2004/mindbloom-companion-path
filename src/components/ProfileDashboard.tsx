@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
-import { User, Mail, Calendar, Shield, Activity, MessageCircle } from "lucide-react";
+import { User, Mail, Calendar, Shield, Activity, MessageCircle, FileText } from "lucide-react";
 
 const ProfileDashboard = () => {
   const { user } = useAuthContext();

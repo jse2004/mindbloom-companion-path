@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SendHorizonal, Mic, Paperclip, UserRound, AlertCircle, Phone, MessageSquare } from "lucide-react";
+import { SendHorizonal, Mic, Paperclip, UserRound, AlertCircle, Phone, MessageSquare, FileText, Play, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
