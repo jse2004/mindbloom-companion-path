@@ -21,6 +21,7 @@ const Auth = () => {
   // Sign In form state
   const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
+  const [signInRole, setSignInRole] = useState("user");
   
   // Sign Up form state
   const [signUpEmail, setSignUpEmail] = useState("");
@@ -41,7 +42,7 @@ const Auth = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: signInEmail,
         password: signInPassword,
       });
@@ -50,8 +51,32 @@ const Auth = () => {
         throw error;
       }
       
+      // Check user's actual role in the database
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+      
+      if (profileError) {
+        toast.error("Failed to verify user role");
+        return;
+      }
+      
+      // Verify the selected role matches the user's actual role
+      if (profile.role !== signInRole) {
+        toast.error(`You don't have ${signInRole} permissions. Your role is: ${profile.role}`);
+        return;
+      }
+      
       toast.success("Signed in successfully!");
-      navigate("/dashboard");
+      
+      // Redirect based on role
+      if (signInRole === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/user");
+      }
     } catch (error: any) {
       toast.error(error.message || "An error occurred during sign in");
     } finally {
@@ -173,6 +198,22 @@ const Auth = () => {
                       disabled={isLoading}
                       required
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sign-in-role">Sign in as</Label>
+                    <Select
+                      value={signInRole}
+                      onValueChange={(value) => setSignInRole(value)}
+                      disabled={isLoading}
+                    >
+                      <SelectTrigger id="sign-in-role">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button 
                     type="submit" 
