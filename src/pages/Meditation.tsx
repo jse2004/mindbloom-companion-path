@@ -68,28 +68,32 @@ const Meditation = () => {
       title: "Deep Breathing",
       description: "Focus on your breath to reduce anxiety and stress",
       duration: 300,
-      color: "bg-blue-500"
+      color: "bg-blue-500",
+      audioUrl: "https://www.youtube.com/embed/ZToicYcHIOU?autoplay=1&loop=1&playlist=ZToicYcHIOU"
     },
     {
       id: "mindfulness",
       title: "Mindfulness",
       description: "Present moment awareness meditation",
       duration: 600,
-      color: "bg-green-500"
+      color: "bg-green-500",
+      audioUrl: "https://www.youtube.com/embed/1ZYbU82GVz4?autoplay=1&loop=1&playlist=1ZYbU82GVz4"
     },
     {
       id: "body-scan",
       title: "Body Scan",
       description: "Progressive relaxation through body awareness",
       duration: 900,
-      color: "bg-purple-500"
+      color: "bg-purple-500",
+      audioUrl: "https://www.youtube.com/embed/ihO02wjO8c4?autoplay=1&loop=1&playlist=ihO02wjO8c4"
     },
     {
       id: "loving-kindness",
       title: "Loving Kindness",
       description: "Cultivate compassion and self-love",
       duration: 480,
-      color: "bg-pink-500"
+      color: "bg-pink-500",
+      audioUrl: "https://www.youtube.com/embed/sz7cpV7ERsM?autoplay=1&loop=1&playlist=sz7cpV7ERsM"
     }
   ];
 
@@ -190,13 +194,19 @@ const Meditation = () => {
                     variant="outline"
                     size="icon"
                     className="h-12 w-12 rounded-full"
+                    onClick={() => {
+                      const iframe = document.getElementById('meditation-audio') as HTMLIFrameElement;
+                      if (iframe) {
+                        iframe.style.display = iframe.style.display === 'none' ? 'block' : 'none';
+                      }
+                    }}
                   >
                     <Volume2 className="h-5 w-5" />
                   </Button>
                 </div>
 
                 {/* Session Status */}
-                <div className="text-center">
+                <div className="text-center space-y-3">
                   {currentTime >= duration && (
                     <p className="text-green-600 font-medium">Session Complete! 🧘‍♀️</p>
                   )}
@@ -205,6 +215,28 @@ const Meditation = () => {
                   )}
                   {!isPlaying && currentTime < duration && currentTime > 0 && (
                     <p className="text-gray-600">Session paused</p>
+                  )}
+                  
+                  {/* Background Audio */}
+                  {currentSession && (
+                    <div className="mt-4">
+                      <iframe
+                        id="meditation-audio"
+                        width="300"
+                        height="120"
+                        src={currentSession.audioUrl}
+                        title="Meditation Background Audio"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        style={{ display: isPlaying ? 'block' : 'none', margin: '0 auto', borderRadius: '8px' }}
+                      ></iframe>
+                      {!isPlaying && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Relaxing background audio will play during meditation
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>

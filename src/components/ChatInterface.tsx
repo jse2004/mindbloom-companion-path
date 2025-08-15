@@ -354,25 +354,51 @@ const ChatInterface = () => {
     }
   };
 
-  const handleRequestExpert = (data: any) => {
+  const handleRequestExpert = async (data: any) => {
+    if (!user) return;
+
     setIsAwaitingExpert(true);
     setChatMode("expert");
     
-    const systemMessage: Message = {
-      id: Date.now().toString(),
-      content: `Your request to speak with a medical professional has been submitted. Reason: ${data.reason}. Urgency: ${data.urgency}. A doctor will connect with you shortly.`,
-      sender: "doctor",
-      timestamp: new Date(),
-    };
-    
-    const updatedMessages = [...messages, systemMessage];
-    setMessages(updatedMessages);
-    saveChatSession(updatedMessages);
-    
-    toast({
-      title: "Expert Request Submitted",
-      description: "A medical professional will connect with you shortly.",
-    });
+    try {
+      // Create expert chat session in database
+      const { data: expertSession, error } = await supabase
+        .from('expert_chat_sessions')
+        .insert({
+          user_id: user.id,
+          user_request_reason: data.reason,
+          urgency: data.urgency,
+          status: 'pending',
+          messages: []
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const systemMessage: Message = {
+        id: Date.now().toString(),
+        content: `Your request to speak with a medical professional has been submitted. Reason: ${data.reason}. Urgency: ${data.urgency}. A doctor will connect with you shortly.`,
+        sender: "doctor",
+        timestamp: new Date(),
+      };
+      
+      const updatedMessages = [...messages, systemMessage];
+      setMessages(updatedMessages);
+      saveChatSession(updatedMessages);
+      
+      toast({
+        title: "Expert Request Submitted",
+        description: "A medical professional will connect with you shortly.",
+      });
+    } catch (error) {
+      console.error('Error creating expert chat session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit expert request. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCrisisSupport = () => {

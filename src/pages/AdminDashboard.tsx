@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Users, FileText, Brain, BarChart2 } from "lucide-react";
 import { toast } from "sonner";
+import AdminChatInterface from "@/components/AdminChatInterface";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -169,6 +170,7 @@ const AdminDashboard = () => {
           <Tabs defaultValue="users" className="space-y-4">
             <TabsList>
               <TabsTrigger value="users">Users</TabsTrigger>
+              <TabsTrigger value="chats">Expert Chats</TabsTrigger>
               <TabsTrigger value="assessments">Assessments</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -221,6 +223,10 @@ const AdminDashboard = () => {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+            
+            <TabsContent value="chats" className="space-y-4">
+              <AdminChatInterface />
             </TabsContent>
             
             <TabsContent value="assessments" className="space-y-4">

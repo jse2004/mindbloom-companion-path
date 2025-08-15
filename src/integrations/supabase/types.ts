@@ -77,6 +77,42 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_chat_sessions: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          id: string
+          messages: Json
+          status: string
+          updated_at: string
+          urgency: string | null
+          user_id: string
+          user_request_reason: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          messages?: Json
+          status?: string
+          updated_at?: string
+          urgency?: string | null
+          user_id: string
+          user_request_reason?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          messages?: Json
+          status?: string
+          updated_at?: string
+          urgency?: string | null
+          user_id?: string
+          user_request_reason?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
