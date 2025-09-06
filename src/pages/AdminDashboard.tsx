@@ -42,14 +42,26 @@ const AdminDashboard = () => {
           .select('*', { count: 'exact', head: true });
         
         if (usersError) throw usersError;
-        
-        // Here we would also fetch assessments and active chats
-        // For now, we'll just set dummy values for those
+
+        // Fetch assessments count
+        const { count: assessmentsCount, error: assessmentsError } = await supabase
+          .from('assessment_results')
+          .select('*', { count: 'exact', head: true });
+
+        if (assessmentsError) throw assessmentsError;
+
+        // Fetch active expert chat sessions
+        const { count: activeChatsCount, error: chatsError } = await supabase
+          .from('expert_chat_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active');
+
+        if (chatsError) throw chatsError;
         
         setStats({
           totalUsers: usersCount || 0,
-          totalAssessments: 0, // This would be fetched from a real table
-          activeChats: 0 // This would be fetched from a real table
+          totalAssessments: assessmentsCount || 0,
+          activeChats: activeChatsCount || 0
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -59,8 +71,48 @@ const AdminDashboard = () => {
     
     if (user && isAdmin) {
       fetchStats();
+      // setupRealtimeSubscriptions();
     }
   }, [user, isAdmin]);
+
+  const setupRealtimeSubscriptions = () => {
+    // Subscribe to user changes
+    const usersChannel = supabase
+      .channel('profiles_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        () => {
+          if (users.length > 0) fetchUsers();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to assessment changes
+    const assessmentsChannel = supabase
+      .channel('assessments_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'assessment_results'
+        },
+        () => {
+          if (assessments.length > 0) fetchAssessments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(assessmentsChannel);
+    };
+  };
 
   // Function to fetch users
   const fetchUsers = async () => {
@@ -84,18 +136,58 @@ const AdminDashboard = () => {
     }
   };
 
-  // Function to fetch assessments (placeholder for now)
+  // Function to fetch assessments from Supabase
   const fetchAssessments = async () => {
     if (!user || !isAdmin) return;
     
     setLoadingAssessments(true);
     try {
-      // This would be replaced with actual assessment data fetching
-      // For demo purposes, we're creating mock data
-      setAssessments([
-        { id: 1, user_name: 'John Doe', score: 75, type: 'Anxiety', date: new Date().toLocaleDateString() },
-        { id: 2, user_name: 'Jane Smith', score: 62, type: 'Depression', date: new Date().toLocaleDateString() }
-      ]);
+      // First fetch assessments
+      const { data: assessmentData, error: assessmentError } = await supabase
+        .from('assessment_results')
+        .select('id, user_id, overall_severity, primary_concerns, category_scores, created_at')
+        .order('created_at', { ascending: false });
+
+      if (assessmentError) throw assessmentError;
+
+      if (assessmentData && assessmentData.length > 0) {
+        // Get unique user IDs
+        const userIds = [...new Set(assessmentData.map(a => a.user_id))];
+        
+        // Fetch user profiles separately
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', userIds);
+
+        if (profileError) throw profileError;
+
+        // Create a map of user profiles
+        const profileMap = (profileData || []).reduce((acc: any, profile: any) => {
+          acc[profile.id] = profile;
+          return acc;
+        }, {});
+
+        const formattedAssessments = assessmentData.map(assessment => {
+          const profile = profileMap[assessment.user_id];
+          return {
+            id: assessment.id,
+            user_name: profile 
+              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown User'
+              : 'Unknown User',
+            severity: assessment.overall_severity,
+            concerns: Array.isArray(assessment.primary_concerns) 
+              ? assessment.primary_concerns.join(', ') 
+              : 'N/A',
+            scores: assessment.category_scores,
+            date: new Date(assessment.created_at).toLocaleDateString()
+          };
+        });
+
+        setAssessments(formattedAssessments);
+      } else {
+        setAssessments([]);
+      }
     } catch (error) {
       console.error("Error fetching assessments:", error);
       toast.error("Failed to load assessments");
@@ -199,18 +291,34 @@ const AdminDashboard = () => {
                         <thead className="bg-muted">
                           <tr>
                             <th className="text-left p-2">Name</th>
-                            <th className="text-left p-2">Email</th>
                             <th className="text-left p-2">Role</th>
                             <th className="text-left p-2">Joined</th>
+                            <th className="text-left p-2">Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {users.map((user) => (
                             <tr key={user.id} className="border-t">
-                              <td className="p-2">{user.first_name} {user.last_name}</td>
-                              <td className="p-2">Email placeholder</td>
-                              <td className="p-2">{user.role}</td>
+                              <td className="p-2">
+                                {user.first_name && user.last_name 
+                                  ? `${user.first_name} ${user.last_name}` 
+                                  : 'Name not provided'}
+                              </td>
+                              <td className="p-2">
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  user.role === 'admin' 
+                                    ? 'bg-purple-100 text-purple-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {user.role}
+                                </span>
+                              </td>
                               <td className="p-2">{new Date(user.created_at).toLocaleDateString()}</td>
+                              <td className="p-2">
+                                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                  Active
+                                </span>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -252,8 +360,8 @@ const AdminDashboard = () => {
                         <thead className="bg-muted">
                           <tr>
                             <th className="text-left p-2">User</th>
-                            <th className="text-left p-2">Type</th>
-                            <th className="text-left p-2">Score</th>
+                            <th className="text-left p-2">Severity</th>
+                            <th className="text-left p-2">Primary Concerns</th>
                             <th className="text-left p-2">Date</th>
                           </tr>
                         </thead>
@@ -261,8 +369,18 @@ const AdminDashboard = () => {
                           {assessments.map((assessment) => (
                             <tr key={assessment.id} className="border-t">
                               <td className="p-2">{assessment.user_name}</td>
-                              <td className="p-2">{assessment.type}</td>
-                              <td className="p-2">{assessment.score}</td>
+                              <td className="p-2">
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  assessment.severity === 'severe' 
+                                    ? 'bg-red-100 text-red-800'
+                                    : assessment.severity === 'moderate'
+                                    ? 'bg-yellow-100 text-yellow-800' 
+                                    : 'bg-green-100 text-green-800'
+                                }`}>
+                                  {assessment.severity}
+                                </span>
+                              </td>
+                              <td className="p-2 max-w-xs truncate">{assessment.concerns}</td>
                               <td className="p-2">{assessment.date}</td>
                             </tr>
                           ))}

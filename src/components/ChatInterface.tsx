@@ -54,6 +54,7 @@ const ChatInterface = () => {
   const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [currentExpertChatId, setCurrentExpertChatId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -73,8 +74,47 @@ const ChatInterface = () => {
   useEffect(() => {
     if (user) {
       loadChatHistory();
+      setupExpertChatSubscription();
     }
   }, [user]);
+
+  const setupExpertChatSubscription = () => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('expert_chat_sessions_user')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expert_chat_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Expert chat update:', payload);
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            const updatedSession = payload.new;
+            if (updatedSession.id === currentExpertChatId && updatedSession.messages) {
+              // Convert expert chat messages to our format
+              const expertMessages = Array.isArray(updatedSession.messages) 
+                ? updatedSession.messages.map((msg: any) => ({
+                    ...msg,
+                    timestamp: new Date(msg.timestamp),
+                    sender: msg.sender === 'admin' ? 'doctor' : msg.sender
+                  }))
+                : [];
+              setMessages(expertMessages);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -262,8 +302,27 @@ const ChatInterface = () => {
         setChatMode("expert");
         setIsAwaitingExpert(true);
         
-        setTimeout(() => {
+        setTimeout(async () => {
           setIsTyping(false);
+          
+          // Update expert chat session with user message
+          if (currentExpertChatId) {
+            const expertMessage = {
+              id: Date.now().toString(),
+              content: inputMessage,
+              sender: "user",
+              timestamp: new Date().toISOString()
+            };
+
+            await supabase
+              .from('expert_chat_sessions')
+              .update({
+                messages: [expertMessage],
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', currentExpertChatId);
+          }
+          
           const doctorMessage: Message = {
             id: (Date.now() + 1).toString(),
             content: "Thank you for reaching out. A medical professional has been notified and will join this conversation shortly. While you wait, can you please provide more details about your concern?",
@@ -274,6 +333,42 @@ const ChatInterface = () => {
           setMessages(messagesWithDoctor);
           saveChatSession(messagesWithDoctor);
         }, 2000);
+      } else {
+        // User is already in expert mode, send message to expert chat
+        setIsTyping(false);
+        
+        if (currentExpertChatId) {
+          try {
+            // Get current messages from expert chat
+            const { data: currentSession } = await supabase
+              .from('expert_chat_sessions')
+              .select('messages')
+              .eq('id', currentExpertChatId)
+              .single();
+
+            const currentMessages = Array.isArray(currentSession?.messages) ? currentSession.messages : [];
+            
+            const newExpertMessage = {
+              id: Date.now().toString(),
+              content: inputMessage,
+              sender: "user",
+              timestamp: new Date().toISOString()
+            };
+
+            const updatedExpertMessages = [...currentMessages, newExpertMessage];
+
+            await supabase
+              .from('expert_chat_sessions')
+              .update({
+                messages: updatedExpertMessages,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', currentExpertChatId);
+
+          } catch (error) {
+            console.error('Error sending message to expert:', error);
+          }
+        }
       }
     } else {
       // Generate AI response
@@ -375,6 +470,8 @@ const ChatInterface = () => {
         .single();
 
       if (error) throw error;
+
+      setCurrentExpertChatId(expertSession.id);
 
       const systemMessage: Message = {
         id: Date.now().toString(),
