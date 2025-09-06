@@ -113,8 +113,10 @@ const AdminChatInterface = () => {
   };
 
   const setupRealtimeSubscription = () => {
+    console.log('Setting up admin realtime subscription');
+    
     const channel = supabase
-      .channel('expert_chat_sessions_changes')
+      .channel('expert_chat_sessions_admin')
       .on(
         'postgres_changes',
         {
@@ -122,13 +124,34 @@ const AdminChatInterface = () => {
           schema: 'public',
           table: 'expert_chat_sessions'
         },
-        () => {
+        (payload) => {
+          console.log('Admin received chat update:', payload);
+          
+          if (payload.eventType === 'UPDATE' && payload.new && selectedSession?.id === payload.new.id) {
+            // Update the selected session in real-time
+            const updatedMessages = Array.isArray(payload.new.messages) 
+              ? payload.new.messages.map((msg: any) => ({
+                  ...msg,
+                  timestamp: new Date(msg.timestamp)
+                }))
+              : [];
+            
+            setSelectedSession(prev => prev ? {
+              ...prev,
+              messages: updatedMessages,
+              status: payload.new.status,
+              admin_id: payload.new.admin_id
+            } : null);
+          }
+          
+          // Reload all sessions for the sidebar
           loadChatSessions();
         }
       )
       .subscribe();
 
     return () => {
+      console.log('Cleaning up admin realtime subscription');
       supabase.removeChannel(channel);
     };
   };

@@ -81,6 +81,8 @@ const ChatInterface = () => {
   const setupExpertChatSubscription = () => {
     if (!user) return;
 
+    console.log('Setting up expert chat subscription for user:', user.id);
+    
     const channel = supabase
       .channel('expert_chat_sessions_user')
       .on(
@@ -92,10 +94,14 @@ const ChatInterface = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Expert chat update:', payload);
+          console.log('Expert chat update received:', payload);
+          
           if (payload.eventType === 'UPDATE' && payload.new) {
             const updatedSession = payload.new;
-            if (updatedSession.id === currentExpertChatId && updatedSession.messages) {
+            console.log('Updated session:', updatedSession);
+            console.log('Current expert chat ID:', currentExpertChatId);
+            
+            if (updatedSession.id === currentExpertChatId) {
               // Convert expert chat messages to our format
               const expertMessages = Array.isArray(updatedSession.messages) 
                 ? updatedSession.messages.map((msg: any) => ({
@@ -104,7 +110,15 @@ const ChatInterface = () => {
                     sender: msg.sender === 'admin' ? 'doctor' : msg.sender
                   }))
                 : [];
+              
+              console.log('Setting messages from expert chat:', expertMessages);
               setMessages(expertMessages);
+              
+              // If admin just accepted the chat, update status
+              if (updatedSession.status === 'active' && isAwaitingExpert) {
+                setIsAwaitingExpert(false);
+                setChatMode("expert");
+              }
             }
           }
         }
@@ -112,6 +126,7 @@ const ChatInterface = () => {
       .subscribe();
 
     return () => {
+      console.log('Cleaning up expert chat subscription');
       supabase.removeChannel(channel);
     };
   };
