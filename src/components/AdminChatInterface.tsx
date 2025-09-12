@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SendHorizonal, UserRound, MessageSquare, Clock } from "lucide-react";
+import { SendHorizonal, UserRound, MessageSquare, Clock, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -40,16 +40,12 @@ const AdminChatInterface = () => {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const selectedSessionIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedSessionIdRef.current = selectedSession?.id ?? null;
-  }, [selectedSession?.id]);
 
   useEffect(() => {
-    if (!user || !isAdmin) return;
-    loadChatSessions();
-    const cleanup = setupRealtimeSubscription();
-    return cleanup;
+    if (user && isAdmin) {
+      loadChatSessions();
+      setupRealtimeSubscription();
+    }
   }, [user, isAdmin]);
 
   useEffect(() => {
@@ -117,10 +113,8 @@ const AdminChatInterface = () => {
   };
 
   const setupRealtimeSubscription = () => {
-    console.log('Setting up admin realtime subscription');
-    
     const channel = supabase
-      .channel('expert_chat_sessions_admin')
+      .channel('expert_chat_sessions_changes')
       .on(
         'postgres_changes',
         {
@@ -128,34 +122,13 @@ const AdminChatInterface = () => {
           schema: 'public',
           table: 'expert_chat_sessions'
         },
-        (payload) => {
-          console.log('Admin received chat update:', payload);
-          
-          if (payload.eventType === 'UPDATE' && payload.new && selectedSessionIdRef.current === payload.new.id) {
-            // Update the selected session in real-time
-            const updatedMessages = Array.isArray(payload.new.messages) 
-              ? payload.new.messages.map((msg: any) => ({
-                  ...msg,
-                  timestamp: new Date(msg.timestamp)
-                }))
-              : [];
-            
-            setSelectedSession(prev => prev ? {
-              ...prev,
-              messages: updatedMessages,
-              status: payload.new.status,
-              admin_id: payload.new.admin_id
-            } : null);
-          }
-          
-          // Reload all sessions for the sidebar
+        () => {
           loadChatSessions();
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up admin realtime subscription');
       supabase.removeChannel(channel);
     };
   };
@@ -210,6 +183,33 @@ const AdminChatInterface = () => {
       toast.error("Failed to send message");
     } finally {
       setSendingMessage(false);
+    }
+  };
+  
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!window.confirm("Are you sure you want to delete this chat session? This action cannot be undone.")) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('expert_chat_sessions')
+            .delete()
+            .eq('id', sessionId);
+
+        if (error) throw error;
+
+        toast.success("Chat session deleted successfully");
+
+        if (selectedSession?.id === sessionId) {
+            setSelectedSession(null);
+        }
+
+        loadChatSessions();
+
+    } catch (error) {
+        console.error('Error deleting chat session:', error);
+        toast.error("Failed to delete chat session");
     }
   };
 
@@ -325,6 +325,17 @@ const AdminChatInterface = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSession(session.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                       <div className={`w-2 h-2 rounded-full ${getUrgencyColor(session.urgency)}`}></div>
                       <Badge className={`text-xs ${getStatusColor(session.status)}`}>
                         {session.status}
