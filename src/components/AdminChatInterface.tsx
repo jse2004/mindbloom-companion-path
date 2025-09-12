@@ -40,12 +40,16 @@ const AdminChatInterface = () => {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedSessionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedSessionIdRef.current = selectedSession?.id ?? null;
+  }, [selectedSession?.id]);
 
   useEffect(() => {
-    if (user && isAdmin) {
-      loadChatSessions();
-      setupRealtimeSubscription();
-    }
+    if (!user || !isAdmin) return;
+    loadChatSessions();
+    const cleanup = setupRealtimeSubscription();
+    return cleanup;
   }, [user, isAdmin]);
 
   useEffect(() => {
@@ -127,7 +131,7 @@ const AdminChatInterface = () => {
         (payload) => {
           console.log('Admin received chat update:', payload);
           
-          if (payload.eventType === 'UPDATE' && payload.new && selectedSession?.id === payload.new.id) {
+          if (payload.eventType === 'UPDATE' && payload.new && selectedSessionIdRef.current === payload.new.id) {
             // Update the selected session in real-time
             const updatedMessages = Array.isArray(payload.new.messages) 
               ? payload.new.messages.map((msg: any) => ({

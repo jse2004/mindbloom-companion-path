@@ -55,9 +55,20 @@ const ChatInterface = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [currentExpertChatId, setCurrentExpertChatId] = useState<string | null>(null);
+  const expertChatIdRef = useRef<string | null>(null);
+  const isAwaitingExpertRef = useRef(isAwaitingExpert);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Keep refs in sync to avoid stale closures in realtime handlers
+  useEffect(() => {
+    expertChatIdRef.current = currentExpertChatId;
+  }, [currentExpertChatId]);
+
+  useEffect(() => {
+    isAwaitingExpertRef.current = isAwaitingExpert;
+  }, [isAwaitingExpert]);
 
   const expertRequestForm = useForm({
     defaultValues: {
@@ -72,10 +83,10 @@ const ChatInterface = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (user) {
-      loadChatHistory();
-      setupExpertChatSubscription();
-    }
+    if (!user) return;
+    loadChatHistory();
+    const cleanup = setupExpertChatSubscription();
+    return cleanup;
   }, [user]);
 
   const setupExpertChatSubscription = () => {
@@ -101,7 +112,7 @@ const ChatInterface = () => {
             console.log('Updated session:', updatedSession);
             console.log('Current expert chat ID:', currentExpertChatId);
             
-            if (updatedSession.id === currentExpertChatId) {
+            if (updatedSession.id === expertChatIdRef.current) {
               // Convert expert chat messages to our format
               const expertMessages = Array.isArray(updatedSession.messages) 
                 ? updatedSession.messages.map((msg: any) => ({
@@ -115,7 +126,7 @@ const ChatInterface = () => {
               setMessages(expertMessages);
               
               // If admin just accepted the chat, update status
-              if (updatedSession.status === 'active' && isAwaitingExpert) {
+              if (updatedSession.status === 'active' && isAwaitingExpertRef.current) {
                 setIsAwaitingExpert(false);
                 setChatMode("expert");
               }
@@ -326,14 +337,23 @@ const ChatInterface = () => {
               id: Date.now().toString(),
               content: inputMessage,
               sender: "user",
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             };
+
+            const { data: currentSession } = await supabase
+              .from('expert_chat_sessions')
+              .select('messages')
+              .eq('id', currentExpertChatId)
+              .maybeSingle();
+
+            const currentMessages = Array.isArray(currentSession?.messages) ? currentSession.messages : [];
+            const updatedExpertMessages = [...currentMessages, expertMessage];
 
             await supabase
               .from('expert_chat_sessions')
               .update({
-                messages: [expertMessage],
-                updated_at: new Date().toISOString()
+                messages: updatedExpertMessages,
+                updated_at: new Date().toISOString(),
               })
               .eq('id', currentExpertChatId);
           }
