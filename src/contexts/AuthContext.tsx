@@ -88,11 +88,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) {
+      // Even if there's an error (like session not found), we should clear local state
+      if (error && error.message !== "Session not found") {
         throw error;
       }
+      
+      // Force clear the local auth state regardless of server response
+      setSession(null);
+      setUser(null);
+      setIsAdmin(false);
+      
       toast.success("Signed out successfully");
     } catch (error: any) {
+      // Still clear local state even on error
+      setSession(null);
+      setUser(null);
+      setIsAdmin(false);
       toast.error(error.message || "Error signing out");
     }
   };
