@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -56,6 +56,7 @@ const ChatInterface = () => {
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expertChatChannel = useRef<RealtimeChannel | null>(null);
+  const { toast } = useToast();
 
   // State for AI chat
   const [messages, setMessages] = useState<Message[]>([
@@ -116,8 +117,14 @@ const ChatInterface = () => {
           (payload) => {
             const updatedSession = payload.new;
             // Ensure messages are converted correctly
-            updatedSession.messages = (updatedSession.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-            setExpertChatSession(updatedSession);
+            const rawMessages = Array.isArray(updatedSession.messages) ? updatedSession.messages : [];
+            const convertedMessages = rawMessages.map((msg: any) => ({
+              id: msg.id,
+              content: msg.content,
+              sender: msg.sender,
+              timestamp: new Date(msg.timestamp)
+            }));
+            setExpertChatSession({ ...updatedSession, messages: convertedMessages } as ExpertChatSession);
             
             if (updatedSession.status === 'active' && expertChatSession.status === 'pending') {
               toast({ title: "A medical professional has joined the chat." });
@@ -154,8 +161,14 @@ const ChatInterface = () => {
       .single();
 
     if (data) {
-      data.messages = (data.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-      setExpertChatSession(data);
+      const rawMessages = Array.isArray(data.messages) ? data.messages : [];
+      const convertedMessages = rawMessages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender,
+        timestamp: new Date(msg.timestamp)
+      }));
+      setExpertChatSession({ ...data, messages: convertedMessages } as ExpertChatSession);
       setChatMode('expert');
     }
     if (error && error.code !== 'PGRST116') { // Ignore 'PGRST116' (No rows found)
@@ -170,7 +183,16 @@ const ChatInterface = () => {
     if (error) {
       toast({ title: "Error", description: "Failed to load AI chat history.", variant: "destructive" });
     } else {
-      setAiChatHistory(data.map(s => ({ ...s, messages: (s.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) })) })));
+      setAiChatHistory(data.map(s => {
+        const rawMessages = Array.isArray(s.messages) ? s.messages : [];
+        const convertedMessages = rawMessages.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content,
+          sender: msg.sender,
+          timestamp: new Date(msg.timestamp)
+        }));
+        return { ...s, messages: convertedMessages };
+      }));
     }
     // Only set loadingHistory to false once both AI and Expert histories are loaded
     // For now, it's fine as they are called in sequence, but could be improved with separate loading states.
@@ -190,7 +212,20 @@ const ChatInterface = () => {
     if (error) {
       toast({ title: "Error", description: "Failed to load expert chat history.", variant: "destructive" });
     } else {
-      setExpertChatHistory(data.map(s => ({ ...s, messages: (s.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) })) })));
+      setExpertChatHistory(data.map(s => {
+        const rawMessages = Array.isArray(s.messages) ? s.messages : [];
+        const convertedMessages = rawMessages.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content,
+          sender: msg.sender,
+          timestamp: new Date(msg.timestamp)
+        }));
+        return { 
+          ...s, 
+          messages: convertedMessages,
+          status: s.status as 'pending' | 'active' | 'completed'
+        };
+      }));
     }
     setLoadingHistory(false);
   };
@@ -230,7 +265,7 @@ const ChatInterface = () => {
 
           if (error) throw error;
 
-          toast({ title: "Success", description: "Chat session deleted successfully.", variant: "success" });
+          toast({ title: "Success", description: "Chat session deleted successfully." });
 
           // If the deleted session was the active one, clear it
           if (expertChatSession?.id === sessionId) {
@@ -243,6 +278,41 @@ const ChatInterface = () => {
 
       } catch (error) {
           console.error('Error deleting expert chat session:', error);
+          toast({ title: "Error", description: "Failed to delete chat session.", variant: "destructive" });
+      }
+  };
+
+  const handleDeleteAiSession = async (sessionId: string) => {
+      if (!user) {
+          toast({ title: "Error", description: "You must be logged in to delete chat sessions.", variant: "destructive" });
+          return;
+      }
+
+      if (!window.confirm("Are you sure you want to delete this AI chat session? This action cannot be undone.")) {
+          return;
+      }
+
+      try {
+          const { error } = await supabase
+              .from('chat_sessions')
+              .delete()
+              .eq('id', sessionId)
+              .eq('user_id', user.id); // Ensure only the user who owns the session can delete it
+
+          if (error) throw error;
+
+          toast({ title: "Success", description: "AI chat session deleted successfully." });
+
+          // If the deleted session was the active one, clear it
+          if (currentAiChatId === sessionId) {
+              startNewChat();
+          }
+
+          // Reload the AI chat history to reflect the deletion
+          loadAiChatHistory();
+
+      } catch (error) {
+          console.error('Error deleting AI chat session:', error);
           toast({ title: "Error", description: "Failed to delete chat session.", variant: "destructive" });
       }
   };
@@ -362,15 +432,21 @@ const ChatInterface = () => {
           user_request_reason: data.reason,
           urgency: data.urgency,
           status: 'pending',
-          messages: [initialMessage]
+          messages: [{ ...initialMessage, timestamp: initialMessage.timestamp.toISOString() }]
         })
         .select()
         .single();
 
       if (error) throw error;
       
-      newExpertSession.messages = (newExpertSession.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-      setExpertChatSession(newExpertSession);
+      const rawMessages = Array.isArray(newExpertSession.messages) ? newExpertSession.messages : [];
+      const convertedMessages = rawMessages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender,
+        timestamp: new Date(msg.timestamp)
+      }));
+      setExpertChatSession({ ...newExpertSession, messages: convertedMessages } as ExpertChatSession);
       setChatMode("expert");
       toast({ title: "Expert Request Submitted" });
     } catch (error) {
@@ -532,21 +608,35 @@ const ChatInterface = () => {
                  ) : aiChatHistory.length === 0 ? (
                    <p className="text-gray-500 text-sm">No AI chat history found.</p>
                  ) : (
-                   <div className="space-y-2">
-                     {aiChatHistory.map((session) => (
-                       <Button
-                         key={session.id}
-                         variant="ghost"
-                         className="w-full justify-start h-auto p-2 text-wrap break-words whitespace-normal"
-                         onClick={() => loadAiChatSession(session)}
-                       >
-                         <span className="truncate">{session.title}</span>
-                         <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
-                           {new Date(session.updated_at).toLocaleDateString()}
-                         </span>
-                       </Button>
-                     ))}
-                   </div>
+                    <div className="space-y-2">
+                      {aiChatHistory.map((session) => (
+                        <div key={session.id} className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="flex-1 justify-start h-auto p-2 text-wrap break-words whitespace-normal"
+                            onClick={() => loadAiChatSession(session)}
+                          >
+                            <div className="flex flex-col items-start w-full">
+                              <span className="truncate">{session.title}</span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(session.updated_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteAiSession(session.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                  )}
                </TabsContent>
                <TabsContent value="expert-history" className="mt-4 flex-1 overflow-y-auto pr-2">
@@ -555,29 +645,36 @@ const ChatInterface = () => {
                  ) : expertChatHistory.length === 0 ? (
                    <p className="text-gray-500 text-sm">No expert chat history found.</p>
                  ) : (
-                   <div className="space-y-2">
-                     {expertChatHistory.map((session) => (
-                       <div key={session.id} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-gray-100 transition-colors">
-                         <Button
-                           variant="ghost"
-                           className="flex-1 justify-start h-auto p-0 text-wrap break-words whitespace-normal"
-                           onClick={() => loadExpertChatTranscript(session)}
-                         >
-                           <span className="truncate">
-                             Expert Chat on {new Date(session.created_at).toLocaleDateString()}
-                           </span>
-                         </Button>
-                         <Button
-                           variant="destructive"
-                           size="icon"
-                           className="h-7 w-7 flex-shrink-0"
-                           onClick={() => handleDeleteExpertSession(session.id)}
-                           title="Delete chat session"
-                         >
-                           <Trash2 className="h-4 w-4" />
-                         </Button>
-                       </div>
-                     ))}
+                    <div className="space-y-2">
+                      {expertChatHistory.map((session) => (
+                        <div key={session.id} className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            className="flex-1 justify-start h-auto p-2 text-wrap break-words whitespace-normal"
+                            onClick={() => loadExpertChatTranscript(session)}
+                          >
+                            <div className="flex flex-col items-start w-full">
+                              <span className="truncate">
+                                Expert Chat - {session.status}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(session.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteExpertSession(session.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                    </div>
                  )}
                </TabsContent>
