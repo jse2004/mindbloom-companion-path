@@ -49,6 +49,9 @@ type ExpertChatSession = {
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY; // Now solely relies on environment variable
 const OPENAI_CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 
+// NLP function endpoint placeholder (to be implemented)
+const NLP_ADVICE_CLOUD_FUNCTION_URL = "https://placeholder-url.com";
+
 const ChatInterface = () => {
   const { user } = useAuthContext();
   const navigate = useNavigate();
@@ -112,10 +115,18 @@ const ChatInterface = () => {
           (payload) => {
             const updatedSession = payload.new;
             // Ensure messages are converted correctly
-            updatedSession.messages = (updatedSession.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-            setExpertChatSession(updatedSession);
+            const messages = Array.isArray(updatedSession.messages) ? 
+              updatedSession.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) })) : [];
             
-            if (updatedSession.status === 'active' && expertChatSession.status === 'pending') {
+            const typedSession: ExpertChatSession = {
+              ...updatedSession,
+              messages,
+              status: updatedSession.status as 'pending' | 'active' | 'completed'
+            };
+            
+            setExpertChatSession(typedSession);
+            
+            if (typedSession.status === 'active' && expertChatSession.status === 'pending') {
               toast({ title: "A medical professional has joined the chat." });
             }
           }
@@ -138,8 +149,14 @@ const ChatInterface = () => {
       .single();
 
     if (data) {
-      data.messages = (data.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-      setExpertChatSession(data);
+      // Type guard and proper conversion for messages
+      const messages = Array.isArray(data.messages) ? 
+        data.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) })) : [];
+      setExpertChatSession({
+        ...data,
+        messages,
+        status: data.status as 'pending' | 'active' | 'completed'
+      });
       setChatMode('expert');
     }
     if (error && error.code !== 'PGRST116') { // Ignore 'PGRST116' (No rows found)
@@ -154,7 +171,11 @@ const ChatInterface = () => {
     if (error) {
       toast({ title: "Error", description: "Failed to load chat history.", variant: "destructive" });
     } else {
-      setAiChatHistory(data.map(s => ({ ...s, messages: (s.messages || []).map(msg => ({ ...msg, timestamp: new Date(s.timestamp) })) })));
+      setAiChatHistory(data.map(s => ({ 
+        ...s, 
+        messages: Array.isArray(s.messages) ? 
+          s.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) })) : []
+      })));
     }
     setLoadingHistory(false);
   };
@@ -233,24 +254,9 @@ const ChatInterface = () => {
         const openAIData = await openAIResponse.json();
         let aiResponseContent = openAIData.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
 
-        // Step 2: Get sentiment analysis and advice from the NLP function
-        const nlpResponse = await fetch(NLP_ADVICE_CLOUD_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: newMessage.content }),
-        });
-
-        if (!nlpResponse.ok) {
-          const errorText = await nlpResponse.text();
-          throw new Error(`NLP HTTP error! status: ${nlpResponse.status}, response: ${errorText}`);
-        }
-        
-        const nlpData = await nlpResponse.json();
-        
-        // Append advice if available and relevant (e.g., strong sentiment)
-        if (nlpData.advice && (nlpData.sentiment < -0.3 || nlpData.sentiment > 0.3)) {
-          aiResponseContent += `\\n\\n<span style="font-size: 0.9em; color: gray;">AI Insight: ${nlpData.advice}</span>`;
-        }
+        // Skip NLP analysis for now (can be added later with proper endpoint)
+        // const nlpResponse = await fetch(NLP_ADVICE_CLOUD_FUNCTION_URL, {...});
+        // For now, just use the OpenAI response as-is
         
         const aiMessage: Message = { id: (Date.now() + 1).toString(), content: aiResponseContent, sender: "ai", timestamp: new Date() };
         
@@ -278,6 +284,9 @@ const ChatInterface = () => {
     const initialMessage: Message = { id: Date.now().toString(), content: initialMessageContent, sender: "doctor", timestamp: new Date() };
 
     try {
+      // Convert message to proper format for database storage
+      const dbMessage = { ...initialMessage, timestamp: initialMessage.timestamp.toISOString() };
+      
       const { data: newExpertSession, error } = await supabase
         .from('expert_chat_sessions')
         .insert({
@@ -285,15 +294,22 @@ const ChatInterface = () => {
           user_request_reason: data.reason,
           urgency: data.urgency,
           status: 'pending',
-          messages: [initialMessage]
+          messages: [dbMessage]
         })
         .select()
         .single();
 
       if (error) throw error;
       
-      newExpertSession.messages = (newExpertSession.messages || []).map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
-      setExpertChatSession(newExpertSession);
+      // Convert messages back to proper format with Date objects
+      const messages = Array.isArray(newExpertSession.messages) ? 
+        newExpertSession.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) })) : [];
+      
+      setExpertChatSession({
+        ...newExpertSession,
+        messages,
+        status: newExpertSession.status as 'pending' | 'active' | 'completed'
+      });
       setChatMode("expert");
       toast({ title: "Expert Request Submitted" });
     } catch (error) {
