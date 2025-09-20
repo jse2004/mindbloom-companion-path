@@ -13,7 +13,7 @@ const HeroSection = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="animate-fade-in">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-              Your Mental Health <span className="gradient-text">Companion</span>
+              Univesidad De Manila <span className="gradient-text">Mental Health</span>
             </h1>
             <p className="mt-6 text-lg md:text-xl text-gray-600 max-w-2xl">
               Advanced AI-powered support for your mental wellbeing. Personalized guidance,
