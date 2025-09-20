@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,10 +45,78 @@ type ExpertChatSession = {
 };
 
 
-// OpenAI API configuration
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY; // Now solely relies on environment variable
-const OPENAI_CHAT_ENDPOINT = "https://api.openai.com/v1/chat/completions";
+// Groq API configuration
+// Use the Groq API for chat completions instead of OpenAI.  Only mental-health–
+// related queries should be answered; otherwise return a default message.
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+const GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = import.meta.env.VITE_GROQ_MODEL || "llama-3.3-70b-versatile";
+// Optional NLP advice function URL
 const NLP_ADVICE_CLOUD_FUNCTION_URL = import.meta.env.VITE_NLP_ADVICE_CLOUD_FUNCTION_URL;
+
+/* -------------------------- FLEXIBLE MH DETECTOR -------------------------- */
+
+// Strong risk terms (any match => immediately considered MH-related)
+const MH_RISK = [
+  "suicide","self-harm","self harm","hurt myself","kill myself","panic attack",
+  "can't sleep","insomnia","night terrors"
+];
+
+// Symptom / feeling words
+const MH_SYMPTOMS = [
+  "depression","depressed","anxiety","anxious","stress","stressed","sad","sadness",
+  "worried","worry","fear","afraid","angry","anger","lonely","loneliness","burnout",
+  "overwhelmed","grief","mourning","hopeless","guilt","shame","mood","mental health",
+  "well-being","wellbeing","therapy","therapist","counseling","counsellor",
+  "psychologist","psychiatrist","trauma","triggered","intrusive thoughts"
+];
+
+// Life contexts that often imply MH support needs
+const MH_CONTEXTS = [
+  // family / relationships
+  "relationship","partner","girlfriend","boyfriend","husband","wife","spouse","breakup",
+  "parents","parent","mom","mum","mother","dad","father","family","divorce","separation",
+  "fight","fighting","argue","argument","conflict",
+
+  // school / work
+  "school","college","university","exam","grades","teacher","bully","bullying",
+  "work","boss","coworker","deadline","layoff","job","career","performance review",
+
+  // daily functioning
+  "sleep","appetite","eat","eating","exercise","meditation","mindfulness","coping","cope"
+];
+
+// Phrases that show help-seeking intent
+const MH_HELP_INTENT = [
+  "what do i do","how do i deal","how can i cope","how to cope","i need help",
+  "advice","support","talk to someone","feel better","make it better"
+];
+
+/**
+ * Heuristic: combine current text with last few messages and score.
+ * - Any MH_RISK term => true
+ * - Else if (SYMPTOMS + CONTEXT + HELP_INTENT) total >= 2 => true
+ * - Extra boost if a context appears with "feel/feeling"
+ */
+const isMentalHealthRelated = (text: string, recent: Message[] = []): boolean => {
+  const blob = (text + " " + recent.map(m => m.content).join(" "))
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  if (MH_RISK.some(k => blob.includes(k))) return true;
+
+  let score = 0;
+  if (MH_SYMPTOMS.some(k => blob.includes(k))) score++;
+  if (MH_CONTEXTS.some(k => blob.includes(k))) score++;
+  if (MH_HELP_INTENT.some(k => blob.includes(k))) score++;
+
+  const feeling = /\bfeel(?:ing|s)?\b/.test(blob) || blob.includes("i'm ") || blob.includes("im ");
+  const contextHit = MH_CONTEXTS.some(k => blob.includes(k));
+  if (feeling && contextHit) score++;
+
+  return score >= 2;
+};
+/* ------------------------------------------------------------------------- */
 
 const ChatInterface = () => {
   const { user } = useAuthContext();
@@ -343,70 +410,82 @@ const ChatInterface = () => {
       setIsTyping(true);
 
       try {
-        if (!OPENAI_API_KEY) {
-          throw new Error("OpenAI API key is not configured. Please set VITE_OPENAI_API_KEY environment variable.");
+        let aiResponseContent: string;
+
+        // Use a short rolling memory of the last ~3 exchanges (≈6 msgs), excluding doctor msgs
+        const recentWindow = messages
+          .filter(m => m.sender !== "doctor")
+          .slice(-6);
+
+        // Flexible detector checks current + recentWindow
+        const mental = isMentalHealthRelated(newMessage.content, recentWindow);
+
+        if (!mental) {
+          aiResponseContent =
+            "I’m here specifically for your emotional well-being. If this is affecting how you feel—like stress, worry, sadness, or conflict—I can help you talk it through. What feels hardest about this right now?";
+        } else {
+          // Ensure Groq API key is set
+          if (!GROQ_API_KEY) {
+            throw new Error("Groq API key is not configured. Please set VITE_GROQ_API_KEY environment variable.");
+          }
+
+          // Build the prompt from the recent window for concise context
+          const groqMessages = [
+            { role: "system", content: "You are a helpful mental health assistant. Provide supportive and empathetic responses." },
+            ...recentWindow.map(msg => ({
+              role: msg.sender === "user" ? "user" : "assistant",
+              content: msg.content
+            })),
+            { role: "user", content: newMessage.content }
+          ];
+
+          const groqResp = await fetch(GROQ_CHAT_ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${GROQ_API_KEY}`
+            },
+            body: JSON.stringify({
+              model: GROQ_MODEL,
+              messages: groqMessages,
+              max_tokens: 200
+            })
+          });
+
+          if (!groqResp.ok) {
+            const errorText = await groqResp.text();
+            throw new Error(`Groq HTTP error! status: ${groqResp.status}, response: ${errorText}`);
+          }
+
+          const groqData = await groqResp.json();
+          aiResponseContent = groqData?.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+
+          // Optionally call NLP advice function
+          if (NLP_ADVICE_CLOUD_FUNCTION_URL) {
+            try {
+              const nlpResp = await fetch(NLP_ADVICE_CLOUD_FUNCTION_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: newMessage.content })
+              });
+              if (nlpResp.ok) {
+                const nlpData = await nlpResp.json();
+                if (nlpData.advice && (nlpData.sentiment < -0.3 || nlpData.sentiment > 0.3)) {
+                  aiResponseContent += `\n\n<span style="font-size: 0.9em; color: gray;">AI Insight: ${nlpData.advice}</span>`;
+                }
+              }
+            } catch (e) {
+              console.warn("NLP advice error:", e);
+            }
+          }
         }
-        if (!NLP_ADVICE_CLOUD_FUNCTION_URL) {
-          throw new Error("NLP Advice Cloud Function URL is not configured. Please set VITE_NLP_ADVICE_CLOUD_FUNCTION_URL environment variable.");
-        }
 
-        // Step 1: Get conversational response from OpenAI
-        const openAIMessages = [
-          { role: "system", content: "You are a helpful mental health assistant. Provide supportive and empathetic responses." },
-          ...messages.slice(1).map(msg => ({ role: msg.sender === "user" ? "user" : "assistant", content: msg.content })),
-          { role: "user", content: newMessage.content }
-        ];
-
-        const openAIResponse = await fetch(OPENAI_CHAT_ENDPOINT, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: "gpt-3.5-turbo", // or "gpt-4" if you have access
-            messages: openAIMessages,
-            max_tokens: 150,
-          }),
-        });
-
-        if (!openAIResponse.ok) {
-          const errorText = await openAIResponse.text();
-          throw new Error(`OpenAI HTTP error! status: ${openAIResponse.status}, response: ${errorText}`);
-        }
-        
-        const openAIData = await openAIResponse.json();
-        let aiResponseContent = openAIData.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
-
-        // Step 2: Get sentiment analysis and advice from the NLP function
-        const nlpResponse = await fetch(NLP_ADVICE_CLOUD_FUNCTION_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: newMessage.content }),
-        });
-
-        if (!nlpResponse.ok) {
-          const errorText = await nlpResponse.text();
-          throw new Error(`NLP HTTP error! status: ${nlpResponse.status}, response: ${errorText}`);
-        }
-        
-        const nlpData = await nlpResponse.json();
-        
-        // Append advice if available and relevant (e.g., strong sentiment)
-        if (nlpData.advice && (nlpData.sentiment < -0.3 || nlpData.sentiment > 0.3)) {
-          aiResponseContent += `
-
-<span style="font-size: 0.9em; color: gray;">AI Insight: ${nlpData.advice}</span>`;
-        }
-        
         const aiMessage: Message = { id: (Date.now() + 1).toString(), content: aiResponseContent, sender: "ai", timestamp: new Date() };
-        
         const finalMessages = [...updatedMessages, aiMessage];
         setMessages(finalMessages);
         saveAiChatSession(finalMessages);
       } catch (error) {
-        console.error('Error with OpenAI or NLP Cloud Function:', error);
-        // Display a more informative error to the user if possible
+        console.error("Error with Groq or NLP service:", error);
         if (error instanceof Error) {
           toast({ title: "AI Error", description: `Failed to get a response: ${error.message}. Please try again.`, variant: "destructive" });
         } else {
