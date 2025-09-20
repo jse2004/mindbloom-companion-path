@@ -155,7 +155,7 @@ const Auth = () => {
         <div className="mb-8 flex flex-col items-center">
           <div className="flex items-center">
             <Brain className="h-10 w-10 text-support-500" />
-            <span className="ml-2 text-3xl font-bold gradient-text">MindBloom</span>
+            <span className="ml-2 text-3xl font-bold gradient-text">Universidad De Manila</span>
           </div>
           <p className="mt-2 text-gray-600">Mental Health Support Platform</p>
         </div>
