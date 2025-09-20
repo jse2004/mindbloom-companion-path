@@ -55,7 +55,7 @@ const HeroSection = () => {
           </div>
           <div className="hidden md:block">
             <img 
-              src="/placeholder.svg" 
+              src="/udm-logo.png" 
               alt="Mind Bloom Platform" 
               className="w-full h-auto rounded-xl shadow-xl"
             />
