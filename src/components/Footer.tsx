@@ -10,10 +10,10 @@ const Footer = () => {
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center">
               <Brain className="h-8 w-8 text-support-500" />
-              <span className="ml-2 text-2xl font-bold gradient-text">MindBloom</span>
+              <span className="ml-2 text-2xl font-bold gradient-text">UDM Manila</span>
             </div>
             <p className="mt-4 text-gray-600 max-w-md">
-              Advanced AI-powered support for your mental wellbeing. Personalized guidance,
+              Your 24/7 Advanced AI-powered support for your mental wellbeing. Personalized guidance,
               assessments, and resources to help you thrive.
             </p>
           </div>
@@ -72,7 +72,7 @@ const Footer = () => {
         </div>
         <div className="mt-12 pt-8 border-t border-gray-200">
           <p className="text-gray-500 text-sm text-center">
-            &copy; {new Date().getFullYear()} MindBloom. All rights reserved.
+            &copy; {new Date().getFullYear()} Universidad De Manila. All rights reserved.
           </p>
         </div>
       </div>
