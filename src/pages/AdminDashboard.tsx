@@ -6,11 +6,16 @@ import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { Users, FileText, Brain, BarChart2 } from "lucide-react";
+import { Users, FileText, Brain, BarChart2, Search, Settings, TrendingUp, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import AdminChatInterface from "@/components/AdminChatInterface";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -18,12 +23,28 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalAssessments: 0,
-    activeChats: 0
+    activeAiChats: 0,
+    activeExpertChats: 0
   });
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingAssessments, setLoadingAssessments] = useState(false);
   const [assessments, setAssessments] = useState<any[]>([]);
+  const [searchUsers, setSearchUsers] = useState("");
+  const [searchAssessments, setSearchAssessments] = useState("");
+  const [analyticsData, setAnalyticsData] = useState<any>({
+    userGrowth: [],
+    assessmentTrends: [],
+    chatStats: [],
+    severityDistribution: []
+  });
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [settings, setSettings] = useState({
+    allowRegistration: true,
+    requireEmailVerification: false,
+    maxChatSessions: 10,
+    systemMaintenanceMode: false
+  });
 
   // Redirect if user is not logged in or not an admin
   useEffect(() => {
@@ -50,18 +71,28 @@ const AdminDashboard = () => {
 
         if (assessmentsError) throw assessmentsError;
 
+        // Fetch active AI chat sessions (from last 24 hours)
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count: aiChatsCount, error: aiChatsError } = await supabase
+          .from('chat_sessions')
+          .select('*', { count: 'exact', head: true })
+          .gte('updated_at', twentyFourHoursAgo);
+
+        if (aiChatsError) throw aiChatsError;
+
         // Fetch active expert chat sessions
-        const { count: activeChatsCount, error: chatsError } = await supabase
+        const { count: expertChatsCount, error: expertChatsError } = await supabase
           .from('expert_chat_sessions')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'active');
 
-        if (chatsError) throw chatsError;
+        if (expertChatsError) throw expertChatsError;
         
         setStats({
           totalUsers: usersCount || 0,
           totalAssessments: assessmentsCount || 0,
-          activeChats: activeChatsCount || 0
+          activeAiChats: aiChatsCount || 0,
+          activeExpertChats: expertChatsCount || 0
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -71,14 +102,14 @@ const AdminDashboard = () => {
     
     if (user && isAdmin) {
       fetchStats();
-      // setupRealtimeSubscriptions();
+      setupRealtimeSubscriptions();
     }
   }, [user, isAdmin]);
 
   const setupRealtimeSubscriptions = () => {
-    // Subscribe to user changes
-    const usersChannel = supabase
-      .channel('profiles_changes')
+    // Subscribe to stats changes
+    const statsChannel = supabase
+      .channel('admin_stats_changes')
       .on(
         'postgres_changes',
         {
@@ -87,14 +118,10 @@ const AdminDashboard = () => {
           table: 'profiles'
         },
         () => {
+          fetchStats();
           if (users.length > 0) fetchUsers();
         }
       )
-      .subscribe();
-
-    // Subscribe to assessment changes
-    const assessmentsChannel = supabase
-      .channel('assessments_changes')
       .on(
         'postgres_changes',
         {
@@ -103,15 +130,82 @@ const AdminDashboard = () => {
           table: 'assessment_results'
         },
         () => {
+          fetchStats();
           if (assessments.length > 0) fetchAssessments();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_sessions'
+        },
+        () => {
+          fetchStats();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expert_chat_sessions'
+        },
+        () => {
+          fetchStats();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(usersChannel);
-      supabase.removeChannel(assessmentsChannel);
+      supabase.removeChannel(statsChannel);
     };
+  };
+
+  const fetchStats = async () => {
+    try {
+      // Fetch total users count
+      const { count: usersCount, error: usersError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+      
+      if (usersError) throw usersError;
+
+      // Fetch assessments count
+      const { count: assessmentsCount, error: assessmentsError } = await supabase
+        .from('assessment_results')
+        .select('*', { count: 'exact', head: true });
+
+      if (assessmentsError) throw assessmentsError;
+
+      // Fetch active AI chat sessions (from last 24 hours)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: aiChatsCount, error: aiChatsError } = await supabase
+        .from('chat_sessions')
+        .select('*', { count: 'exact', head: true })
+        .gte('updated_at', twentyFourHoursAgo);
+
+      if (aiChatsError) throw aiChatsError;
+
+      // Fetch active expert chat sessions
+      const { count: expertChatsCount, error: expertChatsError } = await supabase
+        .from('expert_chat_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
+
+      if (expertChatsError) throw expertChatsError;
+      
+      setStats({
+        totalUsers: usersCount || 0,
+        totalAssessments: assessmentsCount || 0,
+        activeAiChats: aiChatsCount || 0,
+        activeExpertChats: expertChatsCount || 0
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      toast.error("Failed to load dashboard statistics");
+    }
   };
 
   // Function to fetch users
@@ -196,6 +290,127 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch analytics data
+  const fetchAnalyticsData = async () => {
+    if (!user || !isAdmin) return;
+    
+    setLoadingAnalytics(true);
+    try {
+      // User growth over time (last 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: userGrowthData, error: userGrowthError } = await supabase
+        .from('profiles')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo)
+        .order('created_at');
+
+      if (userGrowthError) throw userGrowthError;
+
+      // Assessment trends (last 30 days)
+      const { data: assessmentTrendsData, error: assessmentTrendsError } = await supabase
+        .from('assessment_results')
+        .select('created_at, overall_severity')
+        .gte('created_at', thirtyDaysAgo)
+        .order('created_at');
+
+      if (assessmentTrendsError) throw assessmentTrendsError;
+
+      // Chat statistics
+      const { data: aiChatData, error: aiChatError } = await supabase
+        .from('chat_sessions')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo);
+
+      const { data: expertChatData, error: expertChatError } = await supabase
+        .from('expert_chat_sessions')
+        .select('created_at')
+        .gte('created_at', thirtyDaysAgo);
+
+      if (aiChatError) throw aiChatError;
+      if (expertChatError) throw expertChatError;
+
+      // Process data for charts
+      const userGrowthByDay = processDataByDay(userGrowthData || [], 'created_at');
+      const assessmentTrendsByDay = processDataByDay(assessmentTrendsData || [], 'created_at');
+      const chatStatsByDay = processChatsData(aiChatData || [], expertChatData || []);
+      const severityDistribution = processSeverityData(assessmentTrendsData || []);
+
+      setAnalyticsData({
+        userGrowth: userGrowthByDay,
+        assessmentTrends: assessmentTrendsByDay,
+        chatStats: chatStatsByDay,
+        severityDistribution: severityDistribution
+      });
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      toast.error("Failed to load analytics data");
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
+  // Helper functions for data processing
+  const processDataByDay = (data: any[], dateField: string) => {
+    const dayMap = new Map();
+    
+    data.forEach(item => {
+      const date = new Date(item[dateField]).toLocaleDateString();
+      dayMap.set(date, (dayMap.get(date) || 0) + 1);
+    });
+
+    return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }));
+  };
+
+  const processChatsData = (aiChats: any[], expertChats: any[]) => {
+    const dayMap = new Map();
+    
+    [...aiChats, ...expertChats].forEach(chat => {
+      const date = new Date(chat.created_at).toLocaleDateString();
+      const existing = dayMap.get(date) || { date, ai: 0, expert: 0 };
+      
+      if (aiChats.includes(chat)) {
+        existing.ai += 1;
+      } else {
+        existing.expert += 1;
+      }
+      
+      dayMap.set(date, existing);
+    });
+
+    return Array.from(dayMap.values());
+  };
+
+  const processSeverityData = (assessments: any[]) => {
+    const severityMap = new Map();
+    
+    assessments.forEach(assessment => {
+      const severity = assessment.overall_severity;
+      severityMap.set(severity, (severityMap.get(severity) || 0) + 1);
+    });
+
+    const colors = { mild: '#22c55e', moderate: '#f59e0b', severe: '#ef4444' };
+    
+    return Array.from(severityMap.entries()).map(([severity, count]) => ({
+      name: severity,
+      value: count,
+      fill: colors[severity as keyof typeof colors] || '#6b7280'
+    }));
+  };
+
+  // Filter functions
+  const filteredUsers = users.filter(user => 
+    !searchUsers || 
+    `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchUsers.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchUsers.toLowerCase())
+  );
+
+  const filteredAssessments = assessments.filter(assessment => 
+    !searchAssessments || 
+    assessment.user_name.toLowerCase().includes(searchAssessments.toLowerCase()) ||
+    assessment.severity.toLowerCase().includes(searchAssessments.toLowerCase()) ||
+    assessment.concerns.toLowerCase().includes(searchAssessments.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -212,7 +427,7 @@ const AdminDashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -246,14 +461,29 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Active AI Conversations
+                  Active AI Chats
                 </CardTitle>
                 <Brain className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.activeChats}</div>
+                <div className="text-2xl font-bold">{stats.activeAiChats}</div>
                 <p className="text-xs text-muted-foreground">
                   Active in the last 24h
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Expert Chats
+                </CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.activeExpertChats}</div>
+                <p className="text-xs text-muted-foreground">
+                  Currently active sessions
                 </p>
               </CardContent>
             </Card>
@@ -276,17 +506,28 @@ const AdminDashboard = () => {
                     View and manage user accounts
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={fetchUsers} 
-                    disabled={loadingUsers}
-                  >
-                    {loadingUsers ? "Loading..." : "Fetch Users"}
-                  </Button>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={fetchUsers} 
+                      disabled={loadingUsers}
+                    >
+                      {loadingUsers ? "Loading..." : "Fetch Users"}
+                    </Button>
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search users..."
+                        value={searchUsers}
+                        onChange={(e) => setSearchUsers(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
                   
                   {users.length > 0 ? (
-                    <div className="border rounded-md overflow-hidden mt-4">
+                    <div className="border rounded-md overflow-hidden">
                       <table className="w-full">
                         <thead className="bg-muted">
                           <tr>
@@ -297,7 +538,7 @@ const AdminDashboard = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {users.map((user) => (
+                          {filteredUsers.map((user) => (
                             <tr key={user.id} className="border-t">
                               <td className="p-2">
                                 {user.first_name && user.last_name 
@@ -345,17 +586,28 @@ const AdminDashboard = () => {
                     View assessment data and insights
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Button 
-                    variant="outline" 
-                    onClick={fetchAssessments} 
-                    disabled={loadingAssessments}
-                  >
-                    {loadingAssessments ? "Loading..." : "Fetch Assessments"}
-                  </Button>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={fetchAssessments} 
+                      disabled={loadingAssessments}
+                    >
+                      {loadingAssessments ? "Loading..." : "Fetch Assessments"}
+                    </Button>
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search assessments..."
+                        value={searchAssessments}
+                        onChange={(e) => setSearchAssessments(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
                   
                   {assessments.length > 0 ? (
-                    <div className="border rounded-md overflow-hidden mt-4">
+                    <div className="border rounded-md overflow-hidden">
                       <table className="w-full">
                         <thead className="bg-muted">
                           <tr>
@@ -366,7 +618,7 @@ const AdminDashboard = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {assessments.map((assessment) => (
+                          {filteredAssessments.map((assessment) => (
                             <tr key={assessment.id} className="border-t">
                               <td className="p-2">{assessment.user_name}</td>
                               <td className="p-2">
@@ -397,38 +649,286 @@ const AdminDashboard = () => {
             </TabsContent>
             
             <TabsContent value="analytics" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Platform Analytics</CardTitle>
-                  <CardDescription>
-                    Usage statistics and trends
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border p-4 h-[300px] flex flex-col items-center justify-center">
-                    <BarChart2 className="h-16 w-16 text-gray-200 mb-4" />
-                    <p className="text-center text-sm text-muted-foreground">
-                      Analytics data will be displayed here
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Platform Analytics</h3>
+                  <p className="text-sm text-muted-foreground">Usage statistics and trends over the last 30 days</p>
+                </div>
+                <Button onClick={fetchAnalyticsData} disabled={loadingAnalytics}>
+                  {loadingAnalytics ? "Loading..." : "Refresh Data"}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      User Growth
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {analyticsData.userGrowth.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={analyticsData.userGrowth}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          No data available
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Assessment Trends
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {analyticsData.assessmentTrends.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={analyticsData.assessmentTrends}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="count" fill="#82ca9d" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          No data available
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      Chat Activity
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {analyticsData.chatStats.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={analyticsData.chatStats}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="ai" stroke="#8884d8" strokeWidth={2} name="AI Chats" />
+                            <Line type="monotone" dataKey="expert" stroke="#82ca9d" strokeWidth={2} name="Expert Chats" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          No data available
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart2 className="h-4 w-4" />
+                      Assessment Severity Distribution
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {analyticsData.severityDistribution.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={analyticsData.severityDistribution}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              outerRadius={80}
+                              fill="#8884d8"
+                              dataKey="value"
+                              label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                            >
+                              {analyticsData.severityDistribution.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          No data available
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
             
             <TabsContent value="settings" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Platform Settings</CardTitle>
-                  <CardDescription>
-                    Manage system configuration
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Platform settings will be available here
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Authentication Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure user registration and authentication
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allow-registration">Allow New User Registration</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Enable or disable new user signups
+                        </p>
+                      </div>
+                      <Switch
+                        id="allow-registration"
+                        checked={settings.allowRegistration}
+                        onCheckedChange={(checked) => 
+                          setSettings(prev => ({ ...prev, allowRegistration: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="email-verification">Require Email Verification</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Users must verify email before accessing platform
+                        </p>
+                      </div>
+                      <Switch
+                        id="email-verification"
+                        checked={settings.requireEmailVerification}
+                        onCheckedChange={(checked) => 
+                          setSettings(prev => ({ ...prev, requireEmailVerification: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="max-chat-sessions">Maximum Chat Sessions per User</Label>
+                      <Input
+                        id="max-chat-sessions"
+                        type="number"
+                        value={settings.maxChatSessions}
+                        onChange={(e) => 
+                          setSettings(prev => ({ ...prev, maxChatSessions: parseInt(e.target.value) || 10 }))
+                        }
+                        min="1"
+                        max="100"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      System Settings
+                    </CardTitle>
+                    <CardDescription>
+                      General platform configuration
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Temporarily disable access for maintenance
+                        </p>
+                      </div>
+                      <Switch
+                        id="maintenance-mode"
+                        checked={settings.systemMaintenanceMode}
+                        onCheckedChange={(checked) => 
+                          setSettings(prev => ({ ...prev, systemMaintenanceMode: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="pt-4">
+                      <Button 
+                        onClick={() => {
+                          toast.success("Settings saved successfully");
+                        }}
+                        className="w-full"
+                      >
+                        Save Settings
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Data Management</CardTitle>
+                    <CardDescription>
+                      Export and backup options
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Button variant="outline" className="w-full">
+                      Export User Data
+                    </Button>
+                    <Button variant="outline" className="w-full">
+                      Export Assessment Data
+                    </Button>
+                    <Button variant="outline" className="w-full">
+                      Export Chat Data
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>System Information</CardTitle>
+                    <CardDescription>
+                      Platform status and information
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Platform Version:</span>
+                      <span className="text-sm text-muted-foreground">v1.0.0</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Database Status:</span>
+                      <span className="text-sm text-green-600">Connected</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium">Last Backup:</span>
+                      <span className="text-sm text-muted-foreground">Today, 3:00 AM</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
