@@ -9,12 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuthContext } from "@/contexts/AuthContext";
 import Footer from "@/components/Footer";
 import { Brain } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, isAdmin } = useAuthContext();
   const defaultTab = searchParams.get('tab') || 'sign-in';
   const [isLoading, setIsLoading] = useState(false);
   
@@ -30,6 +32,17 @@ const Auth = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [role, setRole] = useState("user");
+
+  // Redirect authenticated users
+  useEffect(() => {
+    if (user) {
+      if (isAdmin) {
+        navigate("/admin");
+      } else {
+        navigate("/user");
+      }
+    }
+  }, [user, isAdmin, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +122,7 @@ const Auth = () => {
         email: signUpEmail,
         password: signUpPassword,
         options: {
+          emailRedirectTo: `${window.location.origin}/`,
           data: {
             first_name: firstName,
             last_name: lastName,
@@ -118,10 +132,21 @@ const Auth = () => {
       });
       
       if (error) {
-        throw error;
+        if (error.message.includes("User already registered")) {
+          toast.error("This email is already registered. Please sign in instead.");
+        } else if (error.message.includes("Invalid email")) {
+          toast.error("Please enter a valid email address.");
+        } else if (error.message.includes("Password should be at least")) {
+          toast.error("Password must be at least 6 characters long.");
+        } else if (error.message.includes("Signup is disabled")) {
+          toast.error("Account creation is currently disabled. Please contact support.");
+        } else {
+          toast.error(error.message || "An error occurred during sign up");
+        }
+        return;
       }
       
-      toast.success("Account created! Please check your email for verification.");
+      toast.success("Account created successfully! Please check your email for verification (if enabled).");
       
       // Reset form
       setSignUpEmail("");
@@ -132,7 +157,8 @@ const Auth = () => {
       setRole("user");
       
     } catch (error: any) {
-      toast.error(error.message || "An error occurred during sign up");
+      console.error("Sign up error:", error);
+      toast.error("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }

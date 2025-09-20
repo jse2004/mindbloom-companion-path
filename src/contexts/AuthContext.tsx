@@ -39,9 +39,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Check if the user is an admin
+        // Check if the user is an admin using setTimeout to prevent deadlock
         if (session?.user) {
-          checkUserRole(session.user.id);
+          setTimeout(() => {
+            checkUserRole(session.user.id);
+          }, 0);
         } else {
           setIsAdmin(false);
         }
@@ -53,9 +55,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSession(session);
       setUser(session?.user ?? null);
       
-      // Check if the user is an admin
+      // Check if the user is an admin using setTimeout to prevent deadlock
       if (session?.user) {
-        checkUserRole(session.user.id);
+        setTimeout(() => {
+          checkUserRole(session.user.id);
+        }, 0);
       }
       
       setLoading(false);
