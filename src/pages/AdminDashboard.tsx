@@ -250,15 +250,28 @@ const AdminDashboard = () => {
 
         const formattedAssessments = assessmentData.map(assessment => {
           const profile = profileMap[assessment.user_id];
+          
+          // Extract category names from primary concerns objects
+          let concernsText = 'N/A';
+          if (Array.isArray(assessment.primary_concerns) && assessment.primary_concerns.length > 0) {
+            concernsText = assessment.primary_concerns
+              .map((concern: any) => {
+                // Handle both object format and string format
+                if (typeof concern === 'object' && concern.category) {
+                  return concern.category.charAt(0).toUpperCase() + concern.category.slice(1);
+                }
+                return concern;
+              })
+              .join(', ');
+          }
+          
           return {
             id: assessment.id,
             user_name: profile 
               ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown User'
               : 'Unknown User',
             severity: assessment.overall_severity,
-            concerns: Array.isArray(assessment.primary_concerns) 
-              ? assessment.primary_concerns.join(', ') 
-              : 'N/A',
+            concerns: concernsText,
             scores: assessment.category_scores,
             date: new Date(assessment.created_at).toLocaleDateString()
           };
