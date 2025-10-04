@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
@@ -18,6 +19,7 @@ const ProfileDashboard = () => {
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [department, setDepartment] = useState("");
   const [activityStats, setActivityStats] = useState({
     totalChats: 0,
     totalAssessments: 0,
@@ -47,6 +49,7 @@ const ProfileDashboard = () => {
       setProfile(data);
       setFirstName(data.first_name || '');
       setLastName(data.last_name || '');
+      setDepartment(data.department || '');
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
@@ -100,13 +103,20 @@ const ProfileDashboard = () => {
 
   const updateProfile = async () => {
     try {
+      const updateData: any = {
+        first_name: firstName,
+        last_name: lastName,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Only update department if user is not an admin
+      if (profile?.role === 'user') {
+        updateData.department = department;
+      }
+      
       const { error } = await supabase
         .from('profiles')
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', user?.id);
 
       if (error) {
@@ -230,6 +240,37 @@ const ProfileDashboard = () => {
               )}
             </div>
           </div>
+          
+          {profile?.role === 'user' && (
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              {editing ? (
+                <Select
+                  value={department}
+                  onValueChange={(value) => setDepartment(value)}
+                >
+                  <SelectTrigger id="department">
+                    <SelectValue placeholder="Select your department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="College of Computing Studies">College of Computing Studies</SelectItem>
+                    <SelectItem value="College of Health Sciences">College of Health Sciences</SelectItem>
+                    <SelectItem value="College of Criminal Justice">College of Criminal Justice</SelectItem>
+                    <SelectItem value="College of Education">College of Education</SelectItem>
+                    <SelectItem value="College of Business and Public Management">College of Business and Public Management</SelectItem>
+                    <SelectItem value="College of Law">College of Law</SelectItem>
+                    <SelectItem value="College of Arts and Sciences">College of Arts and Sciences</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={profile?.department || 'Not set'}
+                  disabled
+                  className="bg-gray-50"
+                />
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2">
             {editing ? (

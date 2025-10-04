@@ -116,6 +116,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          department: Database["public"]["Enums"]["department_type"] | null
           first_name: string | null
           id: string
           last_name: string | null
@@ -124,6 +125,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department?: Database["public"]["Enums"]["department_type"] | null
           first_name?: string | null
           id: string
           last_name?: string | null
@@ -132,6 +134,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department?: Database["public"]["Enums"]["department_type"] | null
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -216,6 +219,14 @@ export type Database = {
       }
     }
     Enums: {
+      department_type:
+        | "College of Computing Studies"
+        | "College of Health Sciences"
+        | "College of Criminal Justice"
+        | "College of Education"
+        | "College of Business and Public Management"
+        | "College of Law"
+        | "College of Arts and Sciences"
       user_role: "admin" | "user"
     }
     CompositeTypes: {
@@ -344,6 +355,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      department_type: [
+        "College of Computing Studies",
+        "College of Health Sciences",
+        "College of Criminal Justice",
+        "College of Education",
+        "College of Business and Public Management",
+        "College of Law",
+        "College of Arts and Sciences",
+      ],
       user_role: ["admin", "user"],
     },
   },

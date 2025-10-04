@@ -32,6 +32,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [role, setRole] = useState("user");
+  const [department, setDepartment] = useState("");
 
   // Redirect authenticated users
   useEffect(() => {
@@ -105,6 +106,11 @@ const Auth = () => {
       return;
     }
     
+    if (role === "user" && !department) {
+      toast.error("Please select your department");
+      return;
+    }
+    
     if (signUpPassword !== signUpConfirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -126,7 +132,8 @@ const Auth = () => {
           data: {
             first_name: firstName,
             last_name: lastName,
-            role: role // Add the selected role
+            role: role,
+            department: role === "user" ? department : null
           }
         }
       });
@@ -155,6 +162,7 @@ const Auth = () => {
       setFirstName("");
       setLastName("");
       setRole("user");
+      setDepartment("");
       
     } catch (error: any) {
       console.error("Sign up error:", error);
@@ -314,7 +322,12 @@ const Auth = () => {
                     <Label htmlFor="role">Account Type</Label>
                     <Select
                       value={role}
-                      onValueChange={(value) => setRole(value)}
+                      onValueChange={(value) => {
+                        setRole(value);
+                        if (value === "admin") {
+                          setDepartment("");
+                        }
+                      }}
                       disabled={isLoading}
                     >
                       <SelectTrigger id="role">
@@ -326,6 +339,32 @@ const Auth = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {role === "user" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Select
+                        value={department}
+                        onValueChange={(value) => setDepartment(value)}
+                        disabled={isLoading}
+                        required
+                      >
+                        <SelectTrigger id="department">
+                          <SelectValue placeholder="Select your department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="College of Computing Studies">College of Computing Studies</SelectItem>
+                          <SelectItem value="College of Health Sciences">College of Health Sciences</SelectItem>
+                          <SelectItem value="College of Criminal Justice">College of Criminal Justice</SelectItem>
+                          <SelectItem value="College of Education">College of Education</SelectItem>
+                          <SelectItem value="College of Business and Public Management">College of Business and Public Management</SelectItem>
+                          <SelectItem value="College of Law">College of Law</SelectItem>
+                          <SelectItem value="College of Arts and Sciences">College of Arts and Sciences</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
                   <Button 
                     type="submit" 
                     className="w-full bg-support-500 hover:bg-support-600"
