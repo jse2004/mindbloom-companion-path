@@ -4,41 +4,44 @@ import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrendingUp, Users, AlertCircle, BarChart3 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface DepartmentAnalytics {
   department: string;
   count: number;
+  shortName: string;
 }
 
 interface IssueAnalytics {
   issue: string;
   count: number;
+  percentage: number;
 }
 
-const COLORS = ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899', '#14B8A6', '#F97316'];
+const COLORS = ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16', '#F43F5E'];
 
-const DEPARTMENT_LABELS: { [key: string]: string } = {
-  'college_computing_studies': 'College of Computing Studies',
-  'college_health_sciences': 'College of Health Sciences',
-  'college_criminal_justice': 'College of Criminal Justice',
-  'college_education': 'College of Education',
-  'college_business_public_management': 'College of Business and Public Management',
-  'college_law': 'College of Law',
-  'college_arts_sciences': 'College of Arts and Sciences'
+const DEPARTMENT_LABELS: { [key: string]: { full: string; short: string } } = {
+  'college_computing_studies': { full: 'College of Computing Studies', short: 'CCS' },
+  'college_health_sciences': { full: 'College of Health Sciences', short: 'CHS' },
+  'college_criminal_justice': { full: 'College of Criminal Justice', short: 'CCJ' },
+  'college_education': { full: 'College of Education', short: 'CE' },
+  'college_business_public_management': { full: 'College of Business & Public Mgmt', short: 'CBPM' },
+  'college_law': { full: 'College of Law', short: 'CL' },
+  'college_arts_sciences': { full: 'College of Arts & Sciences', short: 'CAS' }
 };
 
 const ISSUE_LABELS: { [key: string]: string } = {
-  'academic-pressure': 'Academic pressure',
-  'heavy-workload': 'Heavy workload',
-  'strict-deadlines': 'Strict deadlines',
-  'fear-of-failure': 'Fear of failure',
-  'scholarship-pressure': 'Scholarship pressure',
-  'career-uncertainty': 'Career uncertainty',
-  'job-opportunities': 'Job opportunities after graduation',
-  'fear-of-underemployment': 'Fear of underemployment',
-  'research-publication-pressure': 'Research and publication pressure',
-  'lack-mental-health-training': 'Lack of mental health training',
+  'academic-pressure': 'Academic Pressure',
+  'heavy-workload': 'Heavy Workload',
+  'strict-deadlines': 'Strict Deadlines',
+  'fear-of-failure': 'Fear of Failure',
+  'scholarship-pressure': 'Scholarship Pressure',
+  'career-uncertainty': 'Career Uncertainty',
+  'job-opportunities': 'Job Opportunities',
+  'fear-of-underemployment': 'Fear of Underemployment',
+  'research-publication-pressure': 'Research Pressure',
+  'lack-mental-health-training': 'Lack of Mental Health Training',
   'other': 'Other'
 };
 
@@ -47,6 +50,7 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [departmentData, setDepartmentData] = useState<DepartmentAnalytics[]>([]);
   const [issueData, setIssueData] = useState<IssueAnalytics[]>([]);
+  const [totalRequests, setTotalRequests] = useState(0);
 
   useEffect(() => {
     if (user && isAdmin) {
@@ -57,7 +61,6 @@ const Analytics = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // Fetch expert chat sessions with mental issue roots
       const { data: sessions, error: sessionsError } = await supabase
         .from('expert_chat_sessions')
         .select(`
@@ -70,10 +73,8 @@ const Analytics = () => {
       if (sessionsError) throw sessionsError;
 
       if (sessions && sessions.length > 0) {
-        // Get unique user IDs
         const userIds = [...new Set(sessions.map(s => s.user_id))];
         
-        // Fetch user profiles with department information
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, department')
@@ -81,7 +82,6 @@ const Analytics = () => {
 
         if (profilesError) throw profilesError;
 
-        // Create a map of user profiles
         const profileMap = (profiles || []).reduce((acc: any, profile: any) => {
           acc[profile.id] = profile;
           return acc;
@@ -96,10 +96,13 @@ const Analytics = () => {
           }
         });
 
-        const deptAnalytics: DepartmentAnalytics[] = Object.entries(deptCounts).map(([dept, count]) => ({
-          department: DEPARTMENT_LABELS[dept] || dept,
-          count: count as number
-        }));
+        const deptAnalytics: DepartmentAnalytics[] = Object.entries(deptCounts)
+          .map(([dept, count]) => ({
+            department: DEPARTMENT_LABELS[dept]?.full || dept,
+            shortName: DEPARTMENT_LABELS[dept]?.short || dept,
+            count: count as number
+          }))
+          .sort((a, b) => b.count - a.count);
 
         setDepartmentData(deptAnalytics);
 
@@ -111,15 +114,21 @@ const Analytics = () => {
           }
         });
 
-        const issueAnalytics: IssueAnalytics[] = Object.entries(issueCounts).map(([issue, count]) => ({
-          issue: ISSUE_LABELS[issue] || issue,
-          count: count as number
-        }));
+        const total = Object.values(issueCounts).reduce((sum, count) => sum + count, 0);
+        const issueAnalytics: IssueAnalytics[] = Object.entries(issueCounts)
+          .map(([issue, count]) => ({
+            issue: ISSUE_LABELS[issue] || issue,
+            count: count as number,
+            percentage: (count as number / total) * 100
+          }))
+          .sort((a, b) => b.count - a.count);
 
         setIssueData(issueAnalytics);
+        setTotalRequests(sessions.length);
       } else {
         setDepartmentData([]);
         setIssueData([]);
+        setTotalRequests(0);
       }
     } catch (error) {
       console.error("Error fetching analytics:", error);
@@ -131,126 +140,238 @@ const Analytics = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center p-12 space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading analytics data...</p>
       </div>
     );
   }
 
+  const hasData = departmentData.length > 0 || issueData.length > 0;
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Department-Level Analytics</CardTitle>
-          <CardDescription>
-            Number of students experiencing mental health issues by department
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {departmentData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={departmentData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="department" 
-                  angle={-45} 
-                  textAnchor="end" 
-                  height={120}
-                  interval={0}
-                />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill="#8B5CF6" name="Number of Students" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-center p-8 text-muted-foreground">
-              No department data available yet. Data will appear when students request medical professional consultations.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">{totalRequests}</div>
+            <p className="text-xs text-muted-foreground mt-1">Professional consultations</p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Issue-Specific Analytics</CardTitle>
-          <CardDescription>
-            Distribution of mental health concerns among students
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {issueData.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ResponsiveContainer width="100%" height={400}>
-                <PieChart>
-                  <Pie
-                    data={issueData as any}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry: any) => `${entry.issue}: ${(entry.percent * 100).toFixed(0)}%`}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {issueData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Departments</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">{departmentData.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">With reported cases</p>
+          </CardContent>
+        </Card>
 
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={issueData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis 
-                    dataKey="issue" 
-                    type="category" 
-                    width={200}
-                  />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#10B981" name="Number of Cases" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="text-center p-8 text-muted-foreground">
-              No issue data available yet. Data will appear when students specify mental health concerns in their consultations.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Issue Types</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-primary">{issueData.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Unique concerns identified</p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Summary Statistics</CardTitle>
-          <CardDescription>
-            Overview of mental health concerns across the institution
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Departments with Cases</p>
-              <p className="text-2xl font-bold text-primary">{departmentData.length}</p>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Top Concern</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold text-primary truncate">
+              {issueData.length > 0 ? issueData[0].issue : 'N/A'}
             </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Issue Types Reported</p>
-              <p className="text-2xl font-bold text-primary">{issueData.length}</p>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Consultation Requests</p>
-              <p className="text-2xl font-bold text-primary">
-                {issueData.reduce((sum, item) => sum + item.count, 0)}
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {issueData.length > 0 ? `${issueData[0].count} cases (${issueData[0].percentage.toFixed(1)}%)` : 'No data'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {!hasData ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <BarChart3 className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Analytics Data Yet</h3>
+            <p className="text-muted-foreground text-center max-w-md">
+              Analytics will appear when students request medical professional consultations and specify their mental health concerns.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Department Analytics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                Department-Level Analytics
+              </CardTitle>
+              <CardDescription>
+                Mental health consultation requests by department
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={departmentData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="shortName" 
+                      tick={{ fontSize: 12 }}
+                      stroke="#6b7280"
+                    />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: any, name: string) => {
+                        if (name === 'count') return [value, 'Students'];
+                        return [value, name];
+                      }}
+                      labelFormatter={(label) => {
+                        const dept = departmentData.find(d => d.shortName === label);
+                        return dept?.department || label;
+                      }}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#8B5CF6" 
+                      radius={[8, 8, 0, 0]}
+                      name="count"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+
+                {/* Department List */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {departmentData.map((dept, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <div>
+                          <p className="font-medium text-sm">{dept.shortName}</p>
+                          <p className="text-xs text-muted-foreground">{dept.department}</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">{dept.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Issue Analytics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Issue Distribution
+                </CardTitle>
+                <CardDescription>
+                  Percentage breakdown of mental health concerns
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <PieChart>
+                    <Pie
+                      data={issueData as any}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={(entry: any) => `${entry.percentage.toFixed(1)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {issueData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-primary" />
+                  Top Mental Health Concerns
+                </CardTitle>
+                <CardDescription>
+                  Most reported issues by students
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {issueData.map((issue, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          />
+                          <span className="text-sm font-medium">{issue.issue}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">{issue.count}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {issue.percentage.toFixed(1)}%
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{
+                            width: `${issue.percentage}%`,
+                            backgroundColor: COLORS[index % COLORS.length]
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 };
