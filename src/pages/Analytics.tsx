@@ -23,13 +23,13 @@ interface IssueAnalytics {
 const COLORS = ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16', '#F43F5E'];
 
 const DEPARTMENT_LABELS: { [key: string]: { full: string; short: string } } = {
-  'college_computing_studies': { full: 'College of Computing Studies', short: 'CCS' },
-  'college_health_sciences': { full: 'College of Health Sciences', short: 'CHS' },
-  'college_criminal_justice': { full: 'College of Criminal Justice', short: 'CCJ' },
-  'college_education': { full: 'College of Education', short: 'CE' },
-  'college_business_public_management': { full: 'College of Business & Public Mgmt', short: 'CBPM' },
-  'college_law': { full: 'College of Law', short: 'CL' },
-  'college_arts_sciences': { full: 'College of Arts & Sciences', short: 'CAS' }
+  'College of Computing Studies': { full: 'College of Computing Studies', short: 'CCS' },
+  'College of Health Sciences': { full: 'College of Health Sciences', short: 'CHS' },
+  'College of Criminal Justice': { full: 'College of Criminal Justice', short: 'CCJ' },
+  'College of Education': { full: 'College of Education', short: 'CE' },
+  'College of Business and Public Management': { full: 'College of Business and Public Management', short: 'CBPM' },
+  'College of Law': { full: 'College of Law', short: 'CL' },
+  'College of Arts and Sciences': { full: 'College of Arts and Sciences', short: 'CAS' }
 };
 
 const ISSUE_LABELS: { [key: string]: string } = {
