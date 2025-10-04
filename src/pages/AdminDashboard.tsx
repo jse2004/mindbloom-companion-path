@@ -15,6 +15,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Users, FileText, Brain, Search, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import AdminChatInterface from "@/components/AdminChatInterface";
+import Analytics from "@/pages/Analytics";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -387,8 +388,9 @@ const AdminDashboard = () => {
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="chats">Expert Chats</TabsTrigger>
               <TabsTrigger value="assessments">Assessments</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="users" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -537,6 +539,10 @@ const AdminDashboard = () => {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-4">
+              <Analytics />
             </TabsContent>
           </Tabs>
         </div>
