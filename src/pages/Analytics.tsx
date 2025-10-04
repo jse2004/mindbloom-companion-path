@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 
 interface DepartmentAnalytics {
   department: string;
-  count: number;
+  uniqueStudents: number;
+  totalRequests: number;
   shortName: string;
 }
 
@@ -87,22 +88,28 @@ const Analytics = () => {
           return acc;
         }, {});
 
-        // Calculate department analytics
-        const deptCounts: { [key: string]: number } = {};
+        // Calculate department analytics - track both unique students and total requests
+        const deptData: { [key: string]: { users: Set<string>; requests: number } } = {};
+        
         sessions.forEach(session => {
           const profile = profileMap[session.user_id];
           if (profile && profile.department) {
-            deptCounts[profile.department] = (deptCounts[profile.department] || 0) + 1;
+            if (!deptData[profile.department]) {
+              deptData[profile.department] = { users: new Set(), requests: 0 };
+            }
+            deptData[profile.department].users.add(session.user_id);
+            deptData[profile.department].requests += 1;
           }
         });
 
-        const deptAnalytics: DepartmentAnalytics[] = Object.entries(deptCounts)
-          .map(([dept, count]) => ({
+        const deptAnalytics: DepartmentAnalytics[] = Object.entries(deptData)
+          .map(([dept, data]) => ({
             department: DEPARTMENT_LABELS[dept]?.full || dept,
             shortName: DEPARTMENT_LABELS[dept]?.short || dept,
-            count: count as number
+            uniqueStudents: data.users.size,
+            totalRequests: data.requests
           }))
-          .sort((a, b) => b.count - a.count);
+          .sort((a, b) => b.uniqueStudents - a.uniqueStudents);
 
         setDepartmentData(deptAnalytics);
 
@@ -252,10 +259,16 @@ const Analytics = () => {
                       }}
                     />
                     <Bar 
-                      dataKey="count" 
+                      dataKey="uniqueStudents" 
                       fill="#8B5CF6" 
                       radius={[8, 8, 0, 0]}
-                      name="count"
+                      name="Students"
+                    />
+                    <Bar 
+                      dataKey="totalRequests" 
+                      fill="#10B981" 
+                      radius={[8, 8, 0, 0]}
+                      name="Requests"
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -277,7 +290,16 @@ const Analytics = () => {
                           <p className="text-xs text-muted-foreground">{dept.department}</p>
                         </div>
                       </div>
-                      <Badge variant="secondary">{dept.count}</Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{dept.uniqueStudents}</p>
+                          <p className="text-xs text-muted-foreground">students</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-primary">{dept.totalRequests}</p>
+                          <p className="text-xs text-muted-foreground">requests</p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
