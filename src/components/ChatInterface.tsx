@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SendHorizonal, UserRound, Trash2 } from "lucide-react"; // Added Trash2
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -144,7 +145,7 @@ const ChatInterface = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false); // Kept for future use, not directly related to this task
 
   const expertRequestForm = useForm({
-    defaultValues: { reason: "", urgency: "low" }
+    defaultValues: { reason: "", urgency: "low", mentalIssueRoot: "" }
   });
 
   // Scroll to bottom effect
@@ -611,20 +612,56 @@ const ChatInterface = () => {
         {/* Sidebar */}
         <div className="w-80 border-l bg-white p-6 overflow-y-auto flex flex-col gap-4">
            {/* Dialog for handleRequestExpert */}
-          <Dialog>
+           <Dialog>
              <DialogTrigger asChild>
                <Button variant="outline" className="w-full justify-start"><UserRound className="mr-3 h-4 w-4" /> Speak with Expert</Button>
              </DialogTrigger>
              <DialogContent>
-               <DialogHeader><DialogTitle>Request Medical Professional</DialogTitle></DialogHeader>
+               <DialogHeader>
+                 <DialogTitle>Request Medical Professional</DialogTitle>
+                 <DialogDescription>
+                   Please provide details about your consultation request.
+                 </DialogDescription>
+               </DialogHeader>
                <Form {...expertRequestForm}>
                  <form onSubmit={expertRequestForm.handleSubmit(handleRequestExpert)} className="space-y-4">
                    <FormField control={expertRequestForm.control} name="reason" render={({ field }) => (
                      <FormItem>
                        <FormLabel>Reason for consultation</FormLabel>
                        <FormControl><Textarea placeholder="Briefly describe your concern" {...field} /></FormControl>
+                       <FormMessage />
                      </FormItem>
                    )}/>
+                   <FormField
+                     control={expertRequestForm.control}
+                     name="mentalIssueRoot"
+                     render={({ field }) => (
+                       <FormItem>
+                         <FormLabel>Root of Mental Issue</FormLabel>
+                         <Select onValueChange={field.onChange} defaultValue={field.value}>
+                           <FormControl>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Select the root cause" />
+                             </SelectTrigger>
+                           </FormControl>
+                           <SelectContent>
+                             <SelectItem value="academic-pressure">Academic pressure</SelectItem>
+                             <SelectItem value="heavy-workload">Heavy workload</SelectItem>
+                             <SelectItem value="strict-deadlines">Strict deadlines</SelectItem>
+                             <SelectItem value="fear-of-failure">Fear of failure</SelectItem>
+                             <SelectItem value="scholarship-pressure">Scholarship pressure</SelectItem>
+                             <SelectItem value="career-uncertainty">Career uncertainty</SelectItem>
+                             <SelectItem value="job-opportunities">Job opportunities after graduation</SelectItem>
+                             <SelectItem value="fear-of-underemployment">Fear of underemployment</SelectItem>
+                             <SelectItem value="research-publication-pressure">Research and publication pressure</SelectItem>
+                             <SelectItem value="lack-mental-health-training">Lack of mental health training</SelectItem>
+                             <SelectItem value="other">Other (specify in reason)</SelectItem>
+                           </SelectContent>
+                         </Select>
+                         <FormMessage />
+                       </FormItem>
+                     )}
+                   />
                    <FormField
                       control={expertRequestForm.control}
                       name="urgency"
