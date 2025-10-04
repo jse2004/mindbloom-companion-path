@@ -179,7 +179,7 @@ const Dashboard = () => {
                   })}
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" className="w-full">View All Resources</Button>
+                  <Button type="button" variant="outline" className="w-full">View All Resources</Button>
                 </CardFooter>
               </Card>
             </div>

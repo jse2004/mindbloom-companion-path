@@ -432,7 +432,7 @@ const AssessmentForm = () => {
                 <CardTitle>Question {currentStep + 1} of {questions.length}</CardTitle>
                 <CardDescription>Mental Health Assessment</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={resetAssessment}>
+              <Button type="button" variant="outline" size="sm" onClick={resetAssessment}>
                 Cancel
               </Button>
             </div>
@@ -533,10 +533,11 @@ const AssessmentForm = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col sm:flex-row gap-3">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={resetAssessment}>
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={resetAssessment}>
               Take Another Assessment
             </Button>
             <Button 
+              type="button"
               className="w-full sm:w-auto bg-support-500 hover:bg-support-600"
               onClick={saveResultsToDashboard}
               disabled={isSaving}

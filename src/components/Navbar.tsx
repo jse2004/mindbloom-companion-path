@@ -79,7 +79,7 @@ const Navbar = () => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="ml-4">
+                  <Button type="button" variant="outline" size="sm" className="ml-4">
                     <UserCircle className="mr-2 h-4 w-4" />
                     Profile
                   </Button>

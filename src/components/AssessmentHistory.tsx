@@ -159,7 +159,7 @@ const AssessmentHistory = () => {
                       Overall Severity: {assessment.overall_severity}
                     </p>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  <Button type="button" variant="ghost" size="sm">
                     <Eye className="h-4 w-4" />
                   </Button>
                 </div>

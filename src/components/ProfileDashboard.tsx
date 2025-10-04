@@ -275,13 +275,13 @@ const ProfileDashboard = () => {
           <div className="flex gap-2">
             {editing ? (
               <>
-                <Button onClick={updateProfile}>Save Changes</Button>
-                <Button variant="outline" onClick={() => setEditing(false)}>
+                <Button type="button" onClick={updateProfile}>Save Changes</Button>
+                <Button type="button" variant="outline" onClick={() => setEditing(false)}>
                   Cancel
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setEditing(true)}>Edit Profile</Button>
+              <Button type="button" onClick={() => setEditing(true)}>Edit Profile</Button>
             )}
           </div>
         </CardContent>

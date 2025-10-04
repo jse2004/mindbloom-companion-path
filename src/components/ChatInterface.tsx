@@ -573,7 +573,7 @@ const ChatInterface = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={startNewChat}>New Chat</Button>
+            <Button type="button" variant="outline" size="sm" onClick={startNewChat}>New Chat</Button>
           </div>
         </div>
       </div>
@@ -614,7 +614,7 @@ const ChatInterface = () => {
            {/* Dialog for handleRequestExpert */}
            <Dialog>
              <DialogTrigger asChild>
-               <Button variant="outline" className="w-full justify-start"><UserRound className="mr-3 h-4 w-4" /> Speak with Expert</Button>
+               <Button type="button" variant="outline" className="w-full justify-start"><UserRound className="mr-3 h-4 w-4" /> Speak with Expert</Button>
              </DialogTrigger>
              <DialogContent>
                <DialogHeader>
