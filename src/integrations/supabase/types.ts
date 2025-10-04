@@ -82,6 +82,7 @@ export type Database = {
           admin_id: string | null
           created_at: string
           id: string
+          mental_issue_root: string | null
           messages: Json
           status: string
           updated_at: string
@@ -93,6 +94,7 @@ export type Database = {
           admin_id?: string | null
           created_at?: string
           id?: string
+          mental_issue_root?: string | null
           messages?: Json
           status?: string
           updated_at?: string
@@ -104,6 +106,7 @@ export type Database = {
           admin_id?: string | null
           created_at?: string
           id?: string
+          mental_issue_root?: string | null
           messages?: Json
           status?: string
           updated_at?: string

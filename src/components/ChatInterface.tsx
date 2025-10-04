@@ -501,7 +501,36 @@ const ChatInterface = () => {
   const handleRequestExpert = async (data: any) => {
     if (!user) return;
 
-    const initialMessageContent = `Your request to speak with a medical professional has been submitted. Reason: ${data.reason}. Urgency: ${data.urgency}. A doctor will connect with you shortly.`;
+    // Format the mental issue root label
+    const mentalIssueLabels: { [key: string]: string } = {
+      'academic-pressure': 'Academic pressure',
+      'heavy-workload': 'Heavy workload',
+      'strict-deadlines': 'Strict deadlines',
+      'fear-of-failure': 'Fear of failure',
+      'scholarship-pressure': 'Scholarship pressure',
+      'career-uncertainty': 'Career uncertainty',
+      'job-opportunities': 'Job opportunities after graduation',
+      'fear-of-underemployment': 'Fear of underemployment',
+      'research-publication-pressure': 'Research and publication pressure',
+      'lack-mental-health-training': 'Lack of mental health training',
+      'other': 'Other'
+    };
+
+    const mentalIssueLabel = mentalIssueLabels[data.mentalIssueRoot] || data.mentalIssueRoot;
+
+    const initialMessageContent = `Your request to speak with a medical professional has been submitted.
+
+**Reason for Consultation:**
+${data.reason}
+
+**Root of Mental Issue:**
+${mentalIssueLabel}
+
+**Urgency Level:**
+${data.urgency.charAt(0).toUpperCase() + data.urgency.slice(1)}
+
+A medical professional will connect with you shortly.`;
+    
     const initialMessage: Message = { id: Date.now().toString(), content: initialMessageContent, sender: "doctor", timestamp: new Date() };
 
     try {
@@ -510,6 +539,7 @@ const ChatInterface = () => {
         .insert({
           user_id: user.id,
           user_request_reason: data.reason,
+          mental_issue_root: data.mentalIssueRoot,
           urgency: data.urgency,
           status: 'pending',
           messages: [{ ...initialMessage, timestamp: initialMessage.timestamp.toISOString() }]
@@ -528,7 +558,7 @@ const ChatInterface = () => {
       }));
       setExpertChatSession({ ...newExpertSession, messages: convertedMessages } as ExpertChatSession);
       setChatMode("expert");
-      toast({ title: "Expert Request Submitted" });
+      toast({ title: "Expert Request Submitted", description: "A medical professional will review your request shortly." });
     } catch (error) {
       console.error('Error creating expert chat session:', error);
       toast({ title: "Error", description: "Failed to submit expert request.", variant: "destructive" });
