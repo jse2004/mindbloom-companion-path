@@ -16,7 +16,7 @@ import { Brain } from "lucide-react";
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAdmin } = useAuthContext();
+  const { user, isAdmin, loading } = useAuthContext();
   const defaultTab = searchParams.get('tab') || 'sign-in';
   const [isLoading, setIsLoading] = useState(false);
   
@@ -34,16 +34,16 @@ const Auth = () => {
   const [role, setRole] = useState("user");
   const [department, setDepartment] = useState("");
 
-  // Redirect authenticated users
+  // Redirect authenticated users - wait for loading to complete to properly check role
   useEffect(() => {
-    if (user) {
+    if (user && !loading) {
       if (isAdmin) {
         navigate("/admin");
       } else {
         navigate("/user");
       }
     }
-  }, [user, isAdmin, navigate]);
+  }, [user, isAdmin, loading, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,32 +65,36 @@ const Auth = () => {
         throw error;
       }
       
-      // Check user's actual role in the database
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+      // Check user's actual role in the database using user_roles table
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
         .select('role')
-        .eq('id', data.user.id)
-        .single();
+        .eq('user_id', data.user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
       
-      if (profileError) {
-        toast.error("Failed to verify user role");
+      if (roleError) {
+        console.error("Error checking role:", roleError);
+      }
+      
+      const actualIsAdmin = !!userRole;
+      
+      // Verify the selected role matches the user's actual role
+      if (signInRole === "admin" && !actualIsAdmin) {
+        await supabase.auth.signOut();
+        toast.error("You don't have admin permissions");
         return;
       }
       
-      // Verify the selected role matches the user's actual role
-      if (profile.role !== signInRole) {
-        toast.error(`You don't have ${signInRole} permissions. Your role is: ${profile.role}`);
+      if (signInRole === "user" && actualIsAdmin) {
+        toast.error("Admin users should sign in as Admin");
         return;
       }
       
       toast.success("Signed in successfully!");
       
-      // Redirect based on role
-      if (signInRole === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/user");
-      }
+      // The redirect will happen automatically through the useEffect above
+      // after the AuthContext updates the isAdmin state
     } catch (error: any) {
       toast.error(error.message || "An error occurred during sign in");
     } finally {
