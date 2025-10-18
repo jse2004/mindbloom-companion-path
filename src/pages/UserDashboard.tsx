@@ -1,18 +1,117 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProfileDashboard from "@/components/ProfileDashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageCircle, FileText, Video, ArrowRight, User, Settings } from "lucide-react";
+import { MessageCircle, FileText, Video, ArrowRight, User, Settings, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { formatDistanceToNow } from "date-fns";
+
+interface Activity {
+  id: string;
+  type: 'chat' | 'assessment' | 'expert_chat';
+  title: string;
+  created_at: string;
+}
 
 const UserDashboard = () => {
   const { user } = useAuthContext();
   const [welcomeMessage, setWelcomeMessage] = useState(`Welcome back, ${user?.user_metadata?.first_name || 'User'}!`);
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadRecentActivities();
+    }
+  }, [user]);
+
+  const loadRecentActivities = async () => {
+    if (!user) return;
+    
+    setLoadingActivities(true);
+    try {
+      const activities: Activity[] = [];
+
+      // Fetch recent chat sessions
+      const { data: chatSessions } = await supabase
+        .from('chat_sessions')
+        .select('id, title, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (chatSessions) {
+        activities.push(...chatSessions.map(chat => ({
+          id: chat.id,
+          type: 'chat' as const,
+          title: chat.title || 'Chat Session',
+          created_at: chat.created_at
+        })));
+      }
+
+      // Fetch recent assessments
+      const { data: assessments } = await supabase
+        .from('assessment_results')
+        .select('id, overall_severity, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (assessments) {
+        activities.push(...assessments.map(assessment => ({
+          id: assessment.id,
+          type: 'assessment' as const,
+          title: `Mental Health Assessment - ${assessment.overall_severity}`,
+          created_at: assessment.created_at
+        })));
+      }
+
+      // Fetch recent expert chat sessions
+      const { data: expertChats } = await supabase
+        .from('expert_chat_sessions')
+        .select('id, status, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (expertChats) {
+        activities.push(...expertChats.map(chat => ({
+          id: chat.id,
+          type: 'expert_chat' as const,
+          title: `Expert Chat - ${chat.status}`,
+          created_at: chat.created_at
+        })));
+      }
+
+      // Sort all activities by date
+      activities.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setRecentActivities(activities.slice(0, 5));
+    } catch (error) {
+      console.error('Error loading recent activities:', error);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const getActivityIcon = (type: Activity['type']) => {
+    switch (type) {
+      case 'chat':
+        return <MessageCircle className="h-4 w-4 text-mind-500" />;
+      case 'assessment':
+        return <FileText className="h-4 w-4 text-bloom-500" />;
+      case 'expert_chat':
+        return <User className="h-4 w-4 text-support-500" />;
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -115,12 +214,40 @@ const UserDashboard = () => {
                 <h2 className="text-xl font-semibold mb-4">Recent Activities</h2>
                 <Card>
                   <CardContent className="p-6">
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">Your recent activities will appear here.</p>
-                      <p className="text-gray-500 text-sm mt-1">
-                        Start by taking an assessment or chatting with our AI assistant
-                      </p>
-                    </div>
+                    {loadingActivities ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">Loading activities...</p>
+                      </div>
+                    ) : recentActivities.length > 0 ? (
+                      <div className="space-y-4">
+                        {recentActivities.map((activity) => (
+                          <div 
+                            key={activity.id}
+                            className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="mt-1">
+                              {getActivityIcon(activity.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {activity.title}
+                              </p>
+                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                <Clock className="h-3 w-3" />
+                                {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">Your recent activities will appear here.</p>
+                        <p className="text-gray-500 text-sm mt-1">
+                          Start by taking an assessment or chatting with our AI assistant
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

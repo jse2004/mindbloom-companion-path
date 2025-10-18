@@ -110,7 +110,7 @@ const Auth = () => {
       return;
     }
     
-    if (role === "user" && !department) {
+    if (!department) {
       toast.error("Please select your department");
       return;
     }
@@ -136,8 +136,8 @@ const Auth = () => {
           data: {
             first_name: firstName,
             last_name: lastName,
-            role: role,
-            department: role === "user" ? department : null
+            role: 'user',
+            department: department
           }
         }
       });
@@ -323,51 +323,27 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="role">Account Type</Label>
+                    <Label htmlFor="department">Department</Label>
                     <Select
-                      value={role}
-                      onValueChange={(value) => {
-                        setRole(value);
-                        if (value === "admin") {
-                          setDepartment("");
-                        }
-                      }}
+                      value={department}
+                      onValueChange={(value) => setDepartment(value)}
                       disabled={isLoading}
+                      required
                     >
-                      <SelectTrigger id="role">
-                        <SelectValue placeholder="Select account type" />
+                      <SelectTrigger id="department">
+                        <SelectValue placeholder="Select your department" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="College of Computing Studies">College of Computing Studies</SelectItem>
+                        <SelectItem value="College of Health Sciences">College of Health Sciences</SelectItem>
+                        <SelectItem value="College of Criminal Justice">College of Criminal Justice</SelectItem>
+                        <SelectItem value="College of Education">College of Education</SelectItem>
+                        <SelectItem value="College of Business and Public Management">College of Business and Public Management</SelectItem>
+                        <SelectItem value="College of Law">College of Law</SelectItem>
+                        <SelectItem value="College of Arts and Sciences">College of Arts and Sciences</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  {role === "user" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department</Label>
-                      <Select
-                        value={department}
-                        onValueChange={(value) => setDepartment(value)}
-                        disabled={isLoading}
-                        required
-                      >
-                        <SelectTrigger id="department">
-                          <SelectValue placeholder="Select your department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="College of Computing Studies">College of Computing Studies</SelectItem>
-                          <SelectItem value="College of Health Sciences">College of Health Sciences</SelectItem>
-                          <SelectItem value="College of Criminal Justice">College of Criminal Justice</SelectItem>
-                          <SelectItem value="College of Education">College of Education</SelectItem>
-                          <SelectItem value="College of Business and Public Management">College of Business and Public Management</SelectItem>
-                          <SelectItem value="College of Law">College of Law</SelectItem>
-                          <SelectItem value="College of Arts and Sciences">College of Arts and Sciences</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                   
                   <Button 
                     type="submit" 
