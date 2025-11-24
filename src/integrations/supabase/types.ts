@@ -84,7 +84,7 @@ export type Database = {
           id: string
           mental_issue_root: string | null
           messages: Json
-          semester: string | null
+          semester: string
           status: string
           updated_at: string
           urgency: string | null
@@ -97,7 +97,7 @@ export type Database = {
           id?: string
           mental_issue_root?: string | null
           messages?: Json
-          semester?: string | null
+          semester?: string
           status?: string
           updated_at?: string
           urgency?: string | null
@@ -110,7 +110,7 @@ export type Database = {
           id?: string
           mental_issue_root?: string | null
           messages?: Json
-          semester?: string | null
+          semester?: string
           status?: string
           updated_at?: string
           urgency?: string | null
@@ -219,6 +219,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_semester_from_date: { Args: { check_date: string }; Returns: string }
       get_user_email: {
         Args: { p_requester: string; p_user_id: string }
         Returns: string
