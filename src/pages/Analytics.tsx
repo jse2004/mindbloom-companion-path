@@ -6,6 +6,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Loader2, TrendingUp, Users, AlertCircle, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface DepartmentAnalytics {
   department: string;
@@ -52,24 +53,33 @@ const Analytics = () => {
   const [departmentData, setDepartmentData] = useState<DepartmentAnalytics[]>([]);
   const [issueData, setIssueData] = useState<IssueAnalytics[]>([]);
   const [totalRequests, setTotalRequests] = useState(0);
+  const [selectedSemester, setSelectedSemester] = useState<string>("all");
 
   useEffect(() => {
     if (user && isAdmin) {
       fetchAnalytics();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, selectedSemester]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const { data: sessions, error: sessionsError } = await supabase
+      let query = supabase
         .from('expert_chat_sessions')
         .select(`
           id,
           user_id,
           mental_issue_root,
-          created_at
+          created_at,
+          semester
         `);
+
+      // Apply semester filter if not "all"
+      if (selectedSemester !== "all") {
+        query = query.eq('semester', selectedSemester);
+      }
+
+      const { data: sessions, error: sessionsError } = await query;
 
       if (sessionsError) throw sessionsError;
 
@@ -224,13 +234,31 @@ const Analytics = () => {
           {/* Department Analytics */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                Department-Level Analytics
-              </CardTitle>
-              <CardDescription>
-                Mental health consultation requests by department
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Department-Level Analytics
+                  </CardTitle>
+                  <CardDescription>
+                    Mental health consultation requests by department
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Semester:</label>
+                  <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Select semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Semesters</SelectItem>
+                      <SelectItem value="1st Sem">1st Sem</SelectItem>
+                      <SelectItem value="2nd Sem">2nd Sem</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
