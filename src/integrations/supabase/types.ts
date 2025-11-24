@@ -121,6 +121,7 @@ export type Database = {
           created_at: string
           department: Database["public"]["Enums"]["department_type"] | null
           first_name: string | null
+          guardian_email: string | null
           id: string
           last_name: string | null
           role: Database["public"]["Enums"]["user_role"]
@@ -130,6 +131,7 @@ export type Database = {
           created_at?: string
           department?: Database["public"]["Enums"]["department_type"] | null
           first_name?: string | null
+          guardian_email?: string | null
           id: string
           last_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -139,6 +141,7 @@ export type Database = {
           created_at?: string
           department?: Database["public"]["Enums"]["department_type"] | null
           first_name?: string | null
+          guardian_email?: string | null
           id?: string
           last_name?: string | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -213,6 +216,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_email: {
+        Args: { p_requester: string; p_user_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
