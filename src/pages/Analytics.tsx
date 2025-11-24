@@ -254,7 +254,6 @@ const Analytics = () => {
                       <SelectItem value="all">All Semesters</SelectItem>
                       <SelectItem value="1st Sem">1st Sem</SelectItem>
                       <SelectItem value="2nd Sem">2nd Sem</SelectItem>
-                      <SelectItem value="Summer">Summer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
