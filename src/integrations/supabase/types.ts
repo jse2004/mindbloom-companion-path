@@ -84,6 +84,7 @@ export type Database = {
           id: string
           mental_issue_root: string | null
           messages: Json
+          semester: string | null
           status: string
           updated_at: string
           urgency: string | null
@@ -96,6 +97,7 @@ export type Database = {
           id?: string
           mental_issue_root?: string | null
           messages?: Json
+          semester?: string | null
           status?: string
           updated_at?: string
           urgency?: string | null
@@ -108,6 +110,7 @@ export type Database = {
           id?: string
           mental_issue_root?: string | null
           messages?: Json
+          semester?: string | null
           status?: string
           updated_at?: string
           urgency?: string | null
